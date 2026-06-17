@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { products, type Product } from "./data/products";
+import { products, type Product, type Brand } from "./data/products";
 
 type SortKey = "sku" | "product" | "strength" | "noMoqPen" | "moq50Pen";
 type SortDir = "asc" | "desc";
@@ -44,8 +44,11 @@ export default function Home() {
   const [packagingLabor, setPackagingLabor] = useState(1.5);
   const [fillingLabor, setFillingLabor] = useState(5);
   const [search, setSearch] = useState("");
+  const [brand, setBrand] = useState<Brand>("Revolve");
   const [sortKey, setSortKey] = useState<SortKey>("product");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const showMoq50 = brand === "Revolve";
 
   const addOns =
     (Number.isNaN(hardware) ? 0 : hardware) +
@@ -70,13 +73,14 @@ export default function Home() {
     }));
 
     const q = search.trim().toLowerCase();
-    const filtered = q
-      ? mapped.filter(
-          (r) =>
-            r.product.toLowerCase().includes(q) ||
-            r.sku.toLowerCase().includes(q),
-        )
-      : mapped;
+    const filtered = mapped
+      .filter((r) => r.brand === brand)
+      .filter((r) =>
+        q
+          ? r.product.toLowerCase().includes(q) ||
+            r.sku.toLowerCase().includes(q)
+          : true,
+      );
 
     const dir = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
@@ -88,7 +92,7 @@ export default function Home() {
         return (av - bv) * dir;
       return String(av).localeCompare(String(bv)) * dir;
     });
-  }, [addOns, search, sortKey, sortDir]);
+  }, [addOns, search, sortKey, sortDir, brand]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -110,10 +114,26 @@ export default function Home() {
             Per-Pen Pricing Calculator
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
-            Showing 1 vial / pen pricing. Per-vial cost = pack price ÷ 10, plus
+            Showing 1 vial / pen pricing. Per-vial cost = list price ÷ 10, plus
             adjustable add-ons below.
           </p>
         </header>
+
+        <div className="mb-6 flex gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-sm sm:inline-flex">
+          {(["Revolve", "Powerhouse"] as Brand[]).map((b) => (
+            <button
+              key={b}
+              onClick={() => setBrand(b)}
+              className={`flex-1 rounded-lg px-5 py-2 text-sm font-medium transition-colors sm:flex-none ${
+                brand === b
+                  ? "bg-neutral-900 text-white"
+                  : "text-neutral-600 hover:bg-neutral-100"
+              }`}
+            >
+              {b}
+            </button>
+          ))}
+        </div>
 
         <section className="mb-6 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-500">
@@ -163,20 +183,24 @@ export default function Home() {
                   Strength{sortArrow("strength")}
                 </Th>
                 <Th className="text-right">Vial</Th>
-                <Th className="text-right">No MOQ /vial</Th>
+                <Th className="text-right">List /vial</Th>
                 <Th
                   onClick={() => toggleSort("noMoqPen")}
                   className="bg-neutral-100 text-right font-semibold text-neutral-900"
                 >
-                  No MOQ /pen{sortArrow("noMoqPen")}
+                  List /pen{sortArrow("noMoqPen")}
                 </Th>
-                <Th className="text-right">50 MOQ /vial</Th>
-                <Th
-                  onClick={() => toggleSort("moq50Pen")}
-                  className="bg-neutral-100 text-right font-semibold text-neutral-900"
-                >
-                  50 MOQ /pen{sortArrow("moq50Pen")}
-                </Th>
+                {showMoq50 && (
+                  <>
+                    <Th className="text-right">50 MOQ /vial</Th>
+                    <Th
+                      onClick={() => toggleSort("moq50Pen")}
+                      className="bg-neutral-100 text-right font-semibold text-neutral-900"
+                    >
+                      50 MOQ /pen{sortArrow("moq50Pen")}
+                    </Th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -203,12 +227,16 @@ export default function Home() {
                   <td className="bg-neutral-50 px-3 py-2 text-right font-semibold tabular-nums">
                     {r.noMoqPen != null ? currency(r.noMoqPen) : "—"}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-neutral-500">
-                    {r.moq50Vial != null ? currency(r.moq50Vial) : "—"}
-                  </td>
-                  <td className="bg-neutral-50 px-3 py-2 text-right font-semibold tabular-nums">
-                    {r.moq50Pen != null ? currency(r.moq50Pen) : "—"}
-                  </td>
+                  {showMoq50 && (
+                    <>
+                      <td className="px-3 py-2 text-right tabular-nums text-neutral-500">
+                        {r.moq50Vial != null ? currency(r.moq50Vial) : "—"}
+                      </td>
+                      <td className="bg-neutral-50 px-3 py-2 text-right font-semibold tabular-nums">
+                        {r.moq50Pen != null ? currency(r.moq50Pen) : "—"}
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -216,7 +244,8 @@ export default function Home() {
         </div>
 
         <p className="mt-4 text-xs text-neutral-400">
-          {rows.length} SKUs shown. Pen price = (pack price ÷ 10) + add-ons.
+          {rows.length} {brand} SKUs shown. Pen price = (list price ÷ 10) +
+          add-ons.
         </p>
       </div>
     </main>
