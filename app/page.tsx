@@ -14,9 +14,20 @@ type Row = Product & {
 };
 
 const STORAGE_KEY = "pen-calc-favorites";
+const TIERS_STORAGE_KEY = "pen-calc-volume-tiers";
 
 const currency = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+type VolumeTier = { qty: number; label: string; discount: number };
+
+const DEFAULT_TIERS: VolumeTier[] = [
+  { qty: 5000, label: "5k", discount: 8 },
+  { qty: 10000, label: "10k", discount: 15 },
+  { qty: 20000, label: "20k", discount: 22 },
+  { qty: 50000, label: "50k", discount: 30 },
+  { qty: 100000, label: "100k", discount: 38 },
+];
 
 const favKey = (brand: Brand, sku: string) => `${brand}:${sku}`;
 
@@ -74,6 +85,7 @@ export default function Home() {
   const [sortKey, setSortKey] = useState<SortKey>("product");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [tiers, setTiers] = useState<VolumeTier[]>(DEFAULT_TIERS);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -87,6 +99,17 @@ export default function Home() {
     } catch {
       setFavorites(defaultFavorites());
     }
+    try {
+      const storedTiers = localStorage.getItem(TIERS_STORAGE_KEY);
+      if (storedTiers) {
+        const parsed = JSON.parse(storedTiers) as VolumeTier[];
+        if (Array.isArray(parsed) && parsed.length === DEFAULT_TIERS.length) {
+          setTiers(parsed);
+        }
+      }
+    } catch {
+      setTiers(DEFAULT_TIERS);
+    }
     setHydrated(true);
   }, []);
 
@@ -95,6 +118,18 @@ export default function Home() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites));
     }
   }, [favorites, hydrated]);
+
+  useEffect(() => {
+    if (hydrated) {
+      localStorage.setItem(TIERS_STORAGE_KEY, JSON.stringify(tiers));
+    }
+  }, [tiers, hydrated]);
+
+  const setTierDiscount = (index: number, value: number) => {
+    setTiers((prev) =>
+      prev.map((t, i) => (i === index ? { ...t, discount: value } : t)),
+    );
+  };
 
   const showMoq50 = brand === "Revolve";
 
@@ -216,6 +251,45 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="mb-8 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-neutral-500">
+            Volume discount tiers
+          </h2>
+          <p className="mb-4 text-xs text-neutral-400">
+            Base prices are at 1,000 pens. Predicted per-pen price = base price ×
+            (1 − discount). Edit the discount % for each volume.
+          </p>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+            {tiers.map((t, i) => (
+              <label key={t.qty} className="flex flex-col gap-1">
+                <span className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                  {t.qty.toLocaleString()} pens
+                </span>
+                <div className="flex items-center rounded-lg border border-neutral-300 bg-white px-3 focus-within:border-neutral-900 focus-within:ring-1 focus-within:ring-neutral-900">
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="100"
+                    value={Number.isNaN(t.discount) ? "" : t.discount}
+                    onChange={(e) =>
+                      setTierDiscount(i, parseFloat(e.target.value))
+                    }
+                    className="w-full bg-transparent py-2 pr-1 text-sm outline-none"
+                  />
+                  <span className="text-neutral-400">%</span>
+                </div>
+              </label>
+            ))}
+          </div>
+          <button
+            onClick={() => setTiers(DEFAULT_TIERS)}
+            className="mt-4 text-xs font-medium text-neutral-500 underline-offset-2 hover:text-neutral-900 hover:underline"
+          >
+            Reset to defaults
+          </button>
+        </section>
+
         {hydrated && favoriteRows.length > 0 && (
           <section className="mb-8">
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-500">
@@ -232,6 +306,7 @@ export default function Home() {
               toggleSort={toggleSort}
               sortArrow={sortArrow}
               showBrandColumn
+              tiers={tiers}
             />
           </section>
         )}
@@ -269,11 +344,13 @@ export default function Home() {
           onToggleFavorite={toggleFavorite}
           toggleSort={toggleSort}
           sortArrow={sortArrow}
+          tiers={tiers}
         />
 
         <p className="mt-4 text-xs text-neutral-400">
-          {brandRows.length} {brand} SKUs shown. Pen price = (list price ÷ 10) +
-          add-ons. Tap the star to add or remove favorites.
+          {brandRows.length} {brand} SKUs shown. 1k /pen = (list price ÷ 10) +
+          add-ons (base at 1,000 pens). Volume columns apply each tier&apos;s
+          discount. Tap the star to add or remove favorites.
         </p>
       </div>
     </main>
@@ -289,6 +366,7 @@ function ProductTable({
   onToggleFavorite,
   toggleSort,
   sortArrow,
+  tiers,
 }: {
   rows: Row[];
   showMoq50?: boolean;
@@ -298,8 +376,12 @@ function ProductTable({
   onToggleFavorite: (brand: Brand, sku: string) => void;
   toggleSort: (key: SortKey) => void;
   sortArrow: (key: SortKey) => string;
+  tiers: VolumeTier[];
 }) {
   const moq50Visible = showMoq50 || showMoq50AsAvailable;
+
+  const tierPrice = (base: number | null, discount: number) =>
+    base == null ? null : base * (1 - (Number.isNaN(discount) ? 0 : discount) / 100);
 
   return (
     <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm">
@@ -321,8 +403,16 @@ function ProductTable({
               onClick={() => toggleSort("noMoqPen")}
               className="bg-neutral-100 text-right font-semibold text-neutral-900"
             >
-              List /pen{sortArrow("noMoqPen")}
+              1k /pen{sortArrow("noMoqPen")}
             </Th>
+            {tiers.map((t) => (
+              <Th
+                key={t.qty}
+                className="bg-emerald-50 text-right font-semibold text-emerald-800"
+              >
+                {t.label} /pen
+              </Th>
+            ))}
             {moq50Visible && (
               <>
                 <Th className="text-right">50 MOQ /vial</Th>
@@ -378,6 +468,17 @@ function ProductTable({
                 <td className="bg-neutral-50 px-3 py-2 text-right font-semibold tabular-nums">
                   {r.noMoqPen != null ? currency(r.noMoqPen) : "—"}
                 </td>
+                {tiers.map((t) => {
+                  const p = tierPrice(r.noMoqPen, t.discount);
+                  return (
+                    <td
+                      key={t.qty}
+                      className="bg-emerald-50/60 px-3 py-2 text-right tabular-nums text-emerald-900"
+                    >
+                      {p != null ? currency(p) : "—"}
+                    </td>
+                  );
+                })}
                 {moq50Visible && (
                   <>
                     <td className="px-3 py-2 text-right tabular-nums text-neutral-500">
