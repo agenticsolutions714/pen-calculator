@@ -1,13 +1,39 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { products, type Product, type Brand } from "./data/products";
 
 type SortKey = "sku" | "product" | "strength" | "noMoqPen" | "moq50Pen";
 type SortDir = "asc" | "desc";
 
+type Row = Product & {
+  noMoqVial: number | null;
+  moq50Vial: number | null;
+  noMoqPen: number | null;
+  moq50Pen: number | null;
+};
+
+const STORAGE_KEY = "pen-calc-favorites";
+
 const currency = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+const favKey = (brand: Brand, sku: string) => `${brand}:${sku}`;
+
+function defaultFavorites(): string[] {
+  return products
+    .filter((p) => {
+      const name = p.product.toLowerCase();
+      const sku = p.sku.toLowerCase();
+      return (
+        name.includes("retatrutide") ||
+        name.includes("nad") ||
+        sku.startsWith("klow") ||
+        sku.startsWith("glow")
+      );
+    })
+    .map((p) => favKey(p.brand, p.sku));
+}
 
 function AddOnInput({
   label,
@@ -47,6 +73,28 @@ export default function Home() {
   const [brand, setBrand] = useState<Brand>("Revolve");
   const [sortKey, setSortKey] = useState<SortKey>("product");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        setFavorites(JSON.parse(stored));
+      } else {
+        setFavorites(defaultFavorites());
+      }
+    } catch {
+      setFavorites(defaultFavorites());
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (hydrated) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites));
+    }
+  }, [favorites, hydrated]);
 
   const showMoq50 = brand === "Revolve";
 
@@ -56,34 +104,37 @@ export default function Home() {
     (Number.isNaN(packagingLabor) ? 0 : packagingLabor) +
     (Number.isNaN(fillingLabor) ? 0 : fillingLabor);
 
-  const rows = useMemo(() => {
-    const perVial = (packPrice: number | null) =>
-      packPrice == null ? null : packPrice / 10;
-    const penPrice = (packPrice: number | null) => {
-      const pv = perVial(packPrice);
+  const toggleFavorite = (brand: Brand, sku: string) => {
+    const key = favKey(brand, sku);
+    setFavorites((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+  };
+
+  const isFavorite = (brand: Brand, sku: string) =>
+    favorites.includes(favKey(brand, sku));
+
+  const allRows = useMemo(() => {
+    const perVial = (price: number | null) =>
+      price == null ? null : price / 10;
+    const penPrice = (price: number | null) => {
+      const pv = perVial(price);
       return pv == null ? null : pv + addOns;
     };
+    return products.map(
+      (p: Product): Row => ({
+        ...p,
+        noMoqVial: perVial(p.noMoq),
+        moq50Vial: perVial(p.moq50),
+        noMoqPen: penPrice(p.noMoq),
+        moq50Pen: penPrice(p.moq50),
+      }),
+    );
+  }, [addOns]);
 
-    const mapped = products.map((p: Product) => ({
-      ...p,
-      noMoqVial: perVial(p.noMoq),
-      moq50Vial: perVial(p.moq50),
-      noMoqPen: penPrice(p.noMoq),
-      moq50Pen: penPrice(p.moq50),
-    }));
-
-    const q = search.trim().toLowerCase();
-    const filtered = mapped
-      .filter((r) => r.brand === brand)
-      .filter((r) =>
-        q
-          ? r.product.toLowerCase().includes(q) ||
-            r.sku.toLowerCase().includes(q)
-          : true,
-      );
-
+  const sortRows = (input: Row[]) => {
     const dir = sortDir === "asc" ? 1 : -1;
-    return [...filtered].sort((a, b) => {
+    return [...input].sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
       if (av == null) return 1;
@@ -92,7 +143,27 @@ export default function Home() {
         return (av - bv) * dir;
       return String(av).localeCompare(String(bv)) * dir;
     });
-  }, [addOns, search, sortKey, sortDir, brand]);
+  };
+
+  const brandRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = allRows
+      .filter((r) => r.brand === brand)
+      .filter((r) =>
+        q
+          ? r.product.toLowerCase().includes(q) ||
+            r.sku.toLowerCase().includes(q)
+          : true,
+      );
+    return sortRows(filtered);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allRows, search, brand, sortKey, sortDir]);
+
+  const favoriteRows = useMemo(() => {
+    const favs = allRows.filter((r) => favorites.includes(favKey(r.brand, r.sku)));
+    return sortRows(favs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allRows, favorites, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -118,22 +189,6 @@ export default function Home() {
             adjustable add-ons below.
           </p>
         </header>
-
-        <div className="mb-6 flex gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-sm sm:inline-flex">
-          {(["Revolve", "Powerhouse"] as Brand[]).map((b) => (
-            <button
-              key={b}
-              onClick={() => setBrand(b)}
-              className={`flex-1 rounded-lg px-5 py-2 text-sm font-medium transition-colors sm:flex-none ${
-                brand === b
-                  ? "bg-neutral-900 text-white"
-                  : "text-neutral-600 hover:bg-neutral-100"
-              }`}
-            >
-              {b}
-            </button>
-          ))}
-        </div>
 
         <section className="mb-6 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-500">
@@ -161,6 +216,42 @@ export default function Home() {
           </div>
         </section>
 
+        {hydrated && favoriteRows.length > 0 && (
+          <section className="mb-8">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-500">
+              <span className="text-amber-500">★</span> Favorites
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                {favoriteRows.length}
+              </span>
+            </h2>
+            <ProductTable
+              rows={favoriteRows}
+              showMoq50AsAvailable
+              isFavorite={isFavorite}
+              onToggleFavorite={toggleFavorite}
+              toggleSort={toggleSort}
+              sortArrow={sortArrow}
+              showBrandColumn
+            />
+          </section>
+        )}
+
+        <div className="mb-6 flex gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-sm sm:inline-flex">
+          {(["Revolve", "Powerhouse"] as Brand[]).map((b) => (
+            <button
+              key={b}
+              onClick={() => setBrand(b)}
+              className={`flex-1 rounded-lg px-5 py-2 text-sm font-medium transition-colors sm:flex-none ${
+                brand === b
+                  ? "bg-neutral-900 text-white"
+                  : "text-neutral-600 hover:bg-neutral-100"
+              }`}
+            >
+              {b}
+            </button>
+          ))}
+        </div>
+
         <div className="mb-4">
           <input
             type="text"
@@ -171,84 +262,138 @@ export default function Home() {
           />
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
-                <Th onClick={() => toggleSort("sku")}>SKU{sortArrow("sku")}</Th>
-                <Th onClick={() => toggleSort("product")}>
-                  Product{sortArrow("product")}
-                </Th>
-                <Th onClick={() => toggleSort("strength")} className="text-right">
-                  Strength{sortArrow("strength")}
-                </Th>
-                <Th className="text-right">Vial</Th>
-                <Th className="text-right">List /vial</Th>
-                <Th
-                  onClick={() => toggleSort("noMoqPen")}
-                  className="bg-neutral-100 text-right font-semibold text-neutral-900"
-                >
-                  List /pen{sortArrow("noMoqPen")}
-                </Th>
-                {showMoq50 && (
-                  <>
-                    <Th className="text-right">50 MOQ /vial</Th>
-                    <Th
-                      onClick={() => toggleSort("moq50Pen")}
-                      className="bg-neutral-100 text-right font-semibold text-neutral-900"
-                    >
-                      50 MOQ /pen{sortArrow("moq50Pen")}
-                    </Th>
-                  </>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr
-                  key={`${r.sku}-${i}`}
-                  className="border-t border-neutral-100 hover:bg-amber-50"
-                >
-                  <td className="px-3 py-2 font-mono text-xs text-neutral-600">
-                    {r.sku}
-                  </td>
-                  <td className="px-3 py-2">{r.product}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {r.strength != null
-                      ? `${r.strength} ${r.strengthUnit}`
-                      : "—"}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-neutral-500">
-                    {r.vialSize} {r.vialUnit}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-neutral-500">
-                    {r.noMoqVial != null ? currency(r.noMoqVial) : "—"}
-                  </td>
-                  <td className="bg-neutral-50 px-3 py-2 text-right font-semibold tabular-nums">
-                    {r.noMoqPen != null ? currency(r.noMoqPen) : "—"}
-                  </td>
-                  {showMoq50 && (
-                    <>
-                      <td className="px-3 py-2 text-right tabular-nums text-neutral-500">
-                        {r.moq50Vial != null ? currency(r.moq50Vial) : "—"}
-                      </td>
-                      <td className="bg-neutral-50 px-3 py-2 text-right font-semibold tabular-nums">
-                        {r.moq50Pen != null ? currency(r.moq50Pen) : "—"}
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ProductTable
+          rows={brandRows}
+          showMoq50={showMoq50}
+          isFavorite={isFavorite}
+          onToggleFavorite={toggleFavorite}
+          toggleSort={toggleSort}
+          sortArrow={sortArrow}
+        />
 
         <p className="mt-4 text-xs text-neutral-400">
-          {rows.length} {brand} SKUs shown. Pen price = (list price ÷ 10) +
-          add-ons.
+          {brandRows.length} {brand} SKUs shown. Pen price = (list price ÷ 10) +
+          add-ons. Tap the star to add or remove favorites.
         </p>
       </div>
     </main>
+  );
+}
+
+function ProductTable({
+  rows,
+  showMoq50 = false,
+  showMoq50AsAvailable = false,
+  showBrandColumn = false,
+  isFavorite,
+  onToggleFavorite,
+  toggleSort,
+  sortArrow,
+}: {
+  rows: Row[];
+  showMoq50?: boolean;
+  showMoq50AsAvailable?: boolean;
+  showBrandColumn?: boolean;
+  isFavorite: (brand: Brand, sku: string) => boolean;
+  onToggleFavorite: (brand: Brand, sku: string) => void;
+  toggleSort: (key: SortKey) => void;
+  sortArrow: (key: SortKey) => string;
+}) {
+  const moq50Visible = showMoq50 || showMoq50AsAvailable;
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
+            <th className="w-10 px-3 py-3" />
+            <Th onClick={() => toggleSort("sku")}>SKU{sortArrow("sku")}</Th>
+            <Th onClick={() => toggleSort("product")}>
+              Product{sortArrow("product")}
+            </Th>
+            {showBrandColumn && <Th>Brand</Th>}
+            <Th onClick={() => toggleSort("strength")} className="text-right">
+              Strength{sortArrow("strength")}
+            </Th>
+            <Th className="text-right">Vial</Th>
+            <Th className="text-right">List /vial</Th>
+            <Th
+              onClick={() => toggleSort("noMoqPen")}
+              className="bg-neutral-100 text-right font-semibold text-neutral-900"
+            >
+              List /pen{sortArrow("noMoqPen")}
+            </Th>
+            {moq50Visible && (
+              <>
+                <Th className="text-right">50 MOQ /vial</Th>
+                <Th
+                  onClick={() => toggleSort("moq50Pen")}
+                  className="bg-neutral-100 text-right font-semibold text-neutral-900"
+                >
+                  50 MOQ /pen{sortArrow("moq50Pen")}
+                </Th>
+              </>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => {
+            const fav = isFavorite(r.brand, r.sku);
+            return (
+              <tr
+                key={`${r.brand}-${r.sku}-${i}`}
+                className="border-t border-neutral-100 hover:bg-amber-50"
+              >
+                <td className="px-3 py-2 text-center">
+                  <button
+                    onClick={() => onToggleFavorite(r.brand, r.sku)}
+                    aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+                    className={`text-lg leading-none transition-colors ${
+                      fav
+                        ? "text-amber-500 hover:text-amber-600"
+                        : "text-neutral-300 hover:text-amber-400"
+                    }`}
+                  >
+                    {fav ? "★" : "☆"}
+                  </button>
+                </td>
+                <td className="px-3 py-2 font-mono text-xs text-neutral-600">
+                  {r.sku}
+                </td>
+                <td className="px-3 py-2">{r.product}</td>
+                {showBrandColumn && (
+                  <td className="px-3 py-2 text-xs text-neutral-500">
+                    {r.brand}
+                  </td>
+                )}
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {r.strength != null ? `${r.strength} ${r.strengthUnit}` : "—"}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums text-neutral-500">
+                  {r.vialSize} {r.vialUnit}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums text-neutral-500">
+                  {r.noMoqVial != null ? currency(r.noMoqVial) : "—"}
+                </td>
+                <td className="bg-neutral-50 px-3 py-2 text-right font-semibold tabular-nums">
+                  {r.noMoqPen != null ? currency(r.noMoqPen) : "—"}
+                </td>
+                {moq50Visible && (
+                  <>
+                    <td className="px-3 py-2 text-right tabular-nums text-neutral-500">
+                      {r.moq50Vial != null ? currency(r.moq50Vial) : "—"}
+                    </td>
+                    <td className="bg-neutral-50 px-3 py-2 text-right font-semibold tabular-nums">
+                      {r.moq50Pen != null ? currency(r.moq50Pen) : "—"}
+                    </td>
+                  </>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
