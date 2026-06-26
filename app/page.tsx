@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { products, type Product, type Brand } from "./data/products";
+import Nav from "./components/Nav";
 
 type SortKey = "sku" | "product" | "strength" | "noMoqPen" | "moq50Pen";
 type SortDir = "asc" | "desc";
@@ -81,7 +82,7 @@ export default function Home() {
   const [packagingLabor, setPackagingLabor] = useState(1.5);
   const [fillingLabor, setFillingLabor] = useState(5);
   const [search, setSearch] = useState("");
-  const [brand, setBrand] = useState<Brand>("Revolve");
+  const [brand, setBrand] = useState<Brand>("Standard");
   const [sortKey, setSortKey] = useState<SortKey>("product");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -131,7 +132,7 @@ export default function Home() {
     );
   };
 
-  const showMoq50 = brand === "Revolve";
+  const showMoq50 = brand === "Standard";
 
   const addOns =
     (Number.isNaN(hardware) ? 0 : hardware) +
@@ -215,6 +216,8 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-neutral-100 text-neutral-900">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <Nav />
+
         <header className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Per-Pen Pricing Calculator
@@ -312,7 +315,7 @@ export default function Home() {
         )}
 
         <div className="mb-6 flex gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-sm sm:inline-flex">
-          {(["Revolve", "Powerhouse"] as Brand[]).map((b) => (
+          {(["Standard"] as Brand[]).map((b) => (
             <button
               key={b}
               onClick={() => setBrand(b)}
@@ -384,8 +387,8 @@ function ProductTable({
     base == null ? null : base * (1 - (Number.isNaN(discount) ? 0 : discount) / 100);
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm">
-      <table className="w-full border-collapse text-sm">
+    <div className="scroll-fade overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm">
+      <table className="w-full min-w-[720px] border-collapse text-sm">
         <thead>
           <tr className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
             <th className="w-10 px-3 py-3" />

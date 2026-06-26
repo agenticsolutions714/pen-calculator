@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -13,8 +13,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pen / Vial Pricing Calculator",
-  description: "Per-pen pricing calculator across all SKUs",
+  title: "Aura — Brokerage Tools",
+  description:
+    "Build brokered deals, price orders, generate POs and invoices, and track payments.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#171717",
 };
 
 export default function RootLayout({
@@ -27,7 +34,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col bg-neutral-100 text-neutral-900">
+        {children}
+      </body>
     </html>
   );
 }
