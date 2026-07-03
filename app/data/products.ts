@@ -17,6 +17,10 @@ export type Product = {
   // supplier label sheet); Standard products leave these undefined.
   category?: string;
   subtitle?: string;
+  // For Aura products: the Standard SKU this item is sourced/relabeled from.
+  // Populated at resolution time (see resolveAuraProduct); Aura's strength and
+  // cost tiers are derived from this source unless overridden.
+  sourceSku?: string | null;
 };
 
 export const standardProducts: Product[] = [
@@ -218,7 +222,7 @@ export const standardProducts: Product[] = [
 // and were corrected. Dihexa has no Standard reference — strength left null (TBD).
 export const auraProducts: Product[] = [
   // Healing & Recovery
-  { brand: "Aura", sku: "A-CU70", product: "GHK-Cu", strength: 70, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "Copper Peptide" },
+  { brand: "Aura", sku: "A-CU70", product: "GHK-Cu", strength: 50, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "Copper Peptide" },
   { brand: "Aura", sku: "A-GLOW70", product: "GLOW", strength: 70, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "GHK-Cu + BPC-157 + TB-500" },
   { brand: "Aura", sku: "A-BPC10", product: "BPC-157", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "Body Protection Compound 157" },
   { brand: "Aura", sku: "A-TB10", product: "TB-500", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "Thymosin Beta-4" },
@@ -245,6 +249,10 @@ export const auraProducts: Product[] = [
   // Sexual Health
   { brand: "Aura", sku: "A-KISS10", product: "Kisspeptin-10", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Sexual Health", subtitle: "10-amino-acid peptide" },
   { brand: "Aura", sku: "A-MT2", product: "Melanotan II", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Sexual Health", subtitle: "Heptapeptide analogue of α-MSH" },
+
+  // Supplies — ordered from Standard and relabeled under Aura.
+  { brand: "Aura", sku: "A-WAC3", product: "BAC Water", strength: null, strengthUnit: "", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Supplies", subtitle: "Bacteriostatic Water" },
+  { brand: "Aura", sku: "A-WAC10", product: "BAC Water", strength: null, strengthUnit: "", vialSize: 10, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Supplies", subtitle: "Bacteriostatic Water" },
 ];
 
 export const AURA_CATEGORIES = [
@@ -253,7 +261,86 @@ export const AURA_CATEGORIES = [
   "Anti-Aging",
   "Cognitive",
   "Sexual Health",
+  "Supplies",
 ] as const;
 
-// Full catalog exposed to the rest of the app: Standard + Aura combined.
-export const products: Product[] = [...standardProducts, ...auraProducts];
+// Each Aura SKU is sourced from (relabeled from) a Standard SKU. This mapping
+// is the single source of truth for Aura strength + cost: resolveAuraProduct
+// pulls the matched Standard product's strength and cost tiers onto the Aura
+// item. SKUs with no Standard equivalent (Glutathione, Dihexa) map to null and
+// keep their authored strength with null cost until sourced elsewhere.
+export const AURA_SOURCE: Record<string, string | null> = {
+  "A-CU70": "CU50",
+  "A-GLOW70": "GLOW70",
+  "A-BPC10": "BC10",
+  "A-TB10": "TB10",
+  "A-KLOW80": "KLOW80",
+  "A-KPV10": "KPV10",
+  "A-GLP1S": "SM10",
+  "A-GLP2TZ": "TR10",
+  "A-GLP3R": "RT10",
+  "A-MOTS10": "MS10",
+  "A-AOD10": "AOD10",
+  "A-EPI10": "EPI10",
+  "A-NAD1000": "NJ1000",
+  "A-GLUT1000": null,
+  "A-SEMAX10": "SX10",
+  "A-SELANK10": "SK10",
+  "A-DIHEXA": null,
+  "A-KISS10": "KS10",
+  "A-MT2": "MT2",
+  "A-WAC3": "WAC3",
+  "A-WAC10": "WAC10",
+};
+
+export const standardBySku: Map<string, Product> = new Map(
+  standardProducts.map((p) => [p.sku, p]),
+);
+
+// Optional per-SKU override applied on top of the default source mapping.
+export type AuraResolveOverride = {
+  // Change which Standard SKU this Aura item is sourced from. null = unsourced.
+  sourceSku?: string | null;
+  // Manually pin the strength instead of inheriting it from the source.
+  strength?: number | null;
+};
+
+// Resolve one Aura product into its effective form: strength + cost tiers are
+// pulled from the (optionally overridden) Standard source; sourceSku is stamped
+// on so downstream consumers (editor, restock PO) can trace it back.
+export function resolveAuraProduct(
+  p: Product,
+  override?: AuraResolveOverride,
+): Product {
+  if (p.brand !== "Aura") return p;
+  // Default source: the static mapping for built-in SKUs, or the product's own
+  // sourceSku for user-added SKUs (which aren't in AURA_SOURCE).
+  const defaultSource =
+    p.sku in AURA_SOURCE ? AURA_SOURCE[p.sku] : p.sourceSku ?? null;
+  const sourceSku =
+    override?.sourceSku !== undefined ? override.sourceSku : defaultSource;
+  const source = sourceSku ? standardBySku.get(sourceSku) ?? null : null;
+  const strength =
+    override?.strength !== undefined
+      ? override.strength
+      : source?.strength ?? p.strength;
+  return {
+    ...p,
+    sourceSku,
+    strength,
+    strengthUnit: strength == null ? "" : source?.strengthUnit ?? p.strengthUnit,
+    noMoq: source ? source.noMoq : p.noMoq,
+    moq50: source ? source.moq50 : p.moq50,
+  };
+}
+
+// Aura catalog with the default source mapping applied (no user overrides).
+export const resolvedAuraProducts: Product[] = auraProducts.map((p) =>
+  resolveAuraProduct(p),
+);
+
+// Full catalog exposed to the rest of the app: Standard + source-resolved Aura.
+export const products: Product[] = [
+  ...standardProducts,
+  ...resolvedAuraProducts,
+];

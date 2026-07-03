@@ -2,7 +2,8 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { products, BRANDS, type Brand } from "../data/products";
+import { BRANDS, type Brand } from "../data/products";
+import { useMergedProducts } from "../data/auraOverrides";
 import {
   dealEconomics,
   lineEconomics,
@@ -59,6 +60,7 @@ const STATUS_LABEL: Record<DealStatus, string> = {
 
 export default function OrderBuilder({ clients, buyers, deals, presets }: Props) {
   const router = useRouter();
+  const { products: mergedProducts } = useMergedProducts();
   const [isPending, startTransition] = useTransition();
 
   const [brand, setBrand] = useState<Brand>("Standard");
@@ -87,8 +89,8 @@ export default function OrderBuilder({ clients, buyers, deals, presets }: Props)
   const [isDragging, setIsDragging] = useState(false);
 
   const brandProducts = useMemo(
-    () => products.filter((p) => p.brand === brand),
-    [brand],
+    () => mergedProducts.filter((p) => p.brand === brand),
+    [mergedProducts, brand],
   );
 
   const filtered = useMemo(() => {

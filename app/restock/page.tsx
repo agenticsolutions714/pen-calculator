@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { products, BRANDS, type Product, type Brand } from "../data/products";
+import { BRANDS, standardBySku, type Product, type Brand } from "../data/products";
+import { useMergedProducts } from "../data/auraOverrides";
 import Nav from "../components/Nav";
 import {
   type MatchedRow,
@@ -35,6 +36,7 @@ type LineRow = Product & {
 };
 
 export default function Restock() {
+  const { products: mergedProducts } = useMergedProducts();
   const [brand, setBrand] = useState<Brand>("Standard");
   const [search, setSearch] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
@@ -79,8 +81,8 @@ export default function Restock() {
   };
 
   const brandProducts = useMemo(
-    () => products.filter((p) => p.brand === brand),
-    [brand],
+    () => mergedProducts.filter((p) => p.brand === brand),
+    [mergedProducts, brand],
   );
 
   const rows = useMemo<LineRow[]>(() => {
@@ -128,7 +130,7 @@ export default function Restock() {
     return { lines: orderRows.length, packs, vials, cost };
   }, [orderRows]);
 
-  const useSuggested = (key: string, suggested: number) => {
+  const applySuggested = (key: string, suggested: number) => {
     setOrderQty(key, suggested);
   };
 
@@ -327,6 +329,123 @@ export default function Restock() {
     month: "long",
     day: "numeric",
   });
+
+  // Consolidated Standard PO: translate every ordered line (across brands) into
+  // its Standard source SKU, so Aura orders become a real purchase order we can
+  // send to Standard. Aura items with no Standard source are flagged separately.
+  const productByKey = useMemo(() => {
+    const m = new Map<string, Product>();
+    for (const p of mergedProducts) m.set(invKey(p.brand, p.sku), p);
+    return m;
+  }, [mergedProducts]);
+
+  const standardPo = useMemo(() => {
+    const agg = new Map<
+      string,
+      { sku: string; product: Product; packs: number }
+    >();
+    const unsourced: { name: string; sku: string; packs: number }[] = [];
+    for (const [key, qty] of Object.entries(order)) {
+      if (!qty || qty <= 0) continue;
+      const p = productByKey.get(key);
+      if (!p) continue;
+      const stdSku = p.brand === "Standard" ? p.sku : p.sourceSku ?? null;
+      const std = stdSku ? standardBySku.get(stdSku) : undefined;
+      if (!stdSku || !std) {
+        unsourced.push({ name: p.product, sku: p.sku, packs: qty });
+        continue;
+      }
+      const cur = agg.get(stdSku);
+      if (cur) cur.packs += qty;
+      else agg.set(stdSku, { sku: stdSku, product: std, packs: qty });
+    }
+    const lines = [...agg.values()]
+      .map((a) => {
+        const unit = a.product.noMoq ?? 0;
+        return {
+          sku: a.sku,
+          product: a.product.product,
+          strength: a.product.strength,
+          strengthUnit: a.product.strengthUnit,
+          vialsPerPack: a.product.vialsPerPack,
+          packs: a.packs,
+          unit,
+          lineTotal: unit * a.packs,
+        };
+      })
+      .sort((x, y) => x.product.localeCompare(y.product));
+    return {
+      lines,
+      unsourced,
+      packs: lines.reduce((s, l) => s + l.packs, 0),
+      vials: lines.reduce((s, l) => s + l.packs * l.vialsPerPack, 0),
+      cost: lines.reduce((s, l) => s + l.lineTotal, 0),
+    };
+  }, [order, productByKey]);
+
+  // Which PO to render into the print-only region. Set right before printing.
+  const [printTarget, setPrintTarget] = useState<"brand" | "standard">("brand");
+  const [printNonce, setPrintNonce] = useState(0);
+  useEffect(() => {
+    if (printNonce > 0) window.print();
+  }, [printNonce]);
+  const printPo = (target: "brand" | "standard") => {
+    setPrintTarget(target);
+    setPrintNonce((n) => n + 1);
+  };
+
+  const copyStandardPo = () => {
+    const header = "Packs\tSKU\tProduct\tUnit\tLine total";
+    const lines = standardPo.lines.map(
+      (l) =>
+        `${l.packs}\t${l.sku}\t${l.product}${
+          l.strength != null ? ` ${l.strength}${l.strengthUnit}` : ""
+        }\t${l.unit.toFixed(2)}\t${l.lineTotal.toFixed(2)}`,
+    );
+    const text = [
+      `Purchase Order → Standard (${orderDate})`,
+      header,
+      ...lines,
+      `TOTAL\t\t\t\t${standardPo.cost.toFixed(2)}`,
+    ].join("\n");
+    navigator.clipboard?.writeText(text).catch(() => {});
+  };
+
+  const exportStandardCsv = () => {
+    if (standardPo.lines.length === 0) return;
+    const esc = (v: string | number) => {
+      const s = String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = ["SKU", "Product", "Strength", "Pack size", "Packs", "Unit", "Line total"];
+    const lines = standardPo.lines.map((l) =>
+      [
+        l.sku,
+        l.product,
+        l.strength != null ? `${l.strength} ${l.strengthUnit}` : "",
+        l.vialsPerPack,
+        l.packs,
+        l.unit.toFixed(2),
+        l.lineTotal.toFixed(2),
+      ]
+        .map(esc)
+        .join(","),
+    );
+    const totalsRow = ["TOTAL", "", "", "", standardPo.packs, "", standardPo.cost.toFixed(2)]
+      .map(esc)
+      .join(",");
+    const csv = [header.join(","), ...lines, totalsRow].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const date = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `PO-Standard-${date}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <main className="min-h-screen bg-neutral-100 text-neutral-900">
@@ -609,7 +728,7 @@ export default function Restock() {
                   <td className="px-3 py-2 text-right tabular-nums">
                     {r.suggested > 0 ? (
                       <button
-                        onClick={() => useSuggested(r.key, r.suggested)}
+                        onClick={() => applySuggested(r.key, r.suggested)}
                         className="rounded-md bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-200"
                         title="Use suggested quantity"
                       >
@@ -662,7 +781,7 @@ export default function Restock() {
           </div>
           <div className="ml-auto flex flex-wrap gap-2">
             <button
-              onClick={() => window.print()}
+              onClick={() => printPo("brand")}
               disabled={totals.lines === 0}
               className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -692,7 +811,161 @@ export default function Restock() {
           </div>
         </div>
 
-        {hydrated && (
+        {standardPo.lines.length > 0 && (
+          <section className="no-print mt-6 rounded-xl border border-blue-200 bg-blue-50/60 p-5 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-1">
+              <h2 className="text-sm font-semibold text-blue-900">
+                Purchase Order → Standard
+              </h2>
+              <span className="text-xs text-blue-800/80">
+                Aura order lines are consolidated back to their Standard source
+                SKUs at Standard list price.
+              </span>
+            </div>
+            <div className="overflow-x-auto rounded-lg border border-blue-200 bg-white">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-blue-200 text-left text-xs uppercase tracking-wide text-neutral-500">
+                    <th className="px-3 py-2 font-medium text-right">Packs</th>
+                    <th className="px-3 py-2 font-medium">SKU</th>
+                    <th className="px-3 py-2 font-medium">Product</th>
+                    <th className="px-3 py-2 font-medium text-right">Unit</th>
+                    <th className="px-3 py-2 font-medium text-right">
+                      Line total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {standardPo.lines.map((l) => (
+                    <tr
+                      key={l.sku}
+                      className="border-b border-neutral-100 last:border-0"
+                    >
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold">
+                        {l.packs}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs text-neutral-600">
+                        {l.sku}
+                      </td>
+                      <td className="px-3 py-2">
+                        {l.product}
+                        {l.strength != null
+                          ? ` · ${l.strength}${l.strengthUnit}`
+                          : ""}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-neutral-500">
+                        {currency(l.unit)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold">
+                        {currency(l.lineTotal)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-blue-200 font-semibold">
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {standardPo.packs}
+                    </td>
+                    <td className="px-3 py-2" colSpan={3}>
+                      Total ({standardPo.lines.length} lines, {standardPo.vials}{" "}
+                      vials)
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {currency(standardPo.cost)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {standardPo.unsourced.length > 0 && (
+              <p className="mt-3 text-xs text-amber-700">
+                Not orderable from Standard (no source):{" "}
+                {standardPo.unsourced
+                  .map((u) => `${u.name} ×${u.packs}`)
+                  .join(", ")}
+                .
+              </p>
+            )}
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                onClick={() => printPo("standard")}
+                className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-800"
+              >
+                Print Standard PO
+              </button>
+              <button
+                onClick={exportStandardCsv}
+                className="rounded-lg border border-blue-300 bg-white px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50"
+              >
+                Export CSV
+              </button>
+              <button
+                onClick={copyStandardPo}
+                className="rounded-lg border border-blue-300 bg-white px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50"
+              >
+                Copy
+              </button>
+            </div>
+          </section>
+        )}
+
+        {hydrated && printTarget === "standard" && (
+          <div className="print-only">
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold">Purchase Order</h1>
+              <p className="mt-1 text-sm">
+                Supplier: <strong>Standard</strong>
+              </p>
+              <p className="text-sm">Date: {orderDate}</p>
+            </div>
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b-2 border-black text-left">
+                  <th className="py-2 pr-3">SKU</th>
+                  <th className="py-2 pr-3">Product</th>
+                  <th className="py-2 pr-3">Strength</th>
+                  <th className="py-2 pr-3 text-right">Pack</th>
+                  <th className="py-2 pr-3 text-right">Packs</th>
+                  <th className="py-2 pr-3 text-right">Unit</th>
+                  <th className="py-2 text-right">Line total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {standardPo.lines.map((l) => (
+                  <tr key={l.sku} className="border-b border-neutral-300">
+                    <td className="py-1 pr-3 font-mono text-xs">{l.sku}</td>
+                    <td className="py-1 pr-3">{l.product}</td>
+                    <td className="py-1 pr-3">
+                      {l.strength != null
+                        ? `${l.strength} ${l.strengthUnit}`
+                        : "—"}
+                    </td>
+                    <td className="py-1 pr-3 text-right">{l.vialsPerPack}</td>
+                    <td className="py-1 pr-3 text-right">{l.packs}</td>
+                    <td className="py-1 pr-3 text-right">{currency(l.unit)}</td>
+                    <td className="py-1 text-right">{currency(l.lineTotal)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-black font-bold">
+                  <td className="py-2 pr-3" colSpan={4}>
+                    Total ({standardPo.lines.length} lines, {standardPo.vials}{" "}
+                    vials)
+                  </td>
+                  <td className="py-2 pr-3 text-right">{standardPo.packs}</td>
+                  <td className="py-2 pr-3"></td>
+                  <td className="py-2 text-right">{currency(standardPo.cost)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+
+        {hydrated && printTarget === "brand" && (
           <div className="print-only">
             <div className="mb-6">
               <h1 className="text-2xl font-bold">Purchase Order</h1>

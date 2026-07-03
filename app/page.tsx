@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { products, BRANDS, type Product, type Brand } from "./data/products";
+import { useMergedProducts } from "./data/auraOverrides";
 import Nav from "./components/Nav";
 
 type SortKey = "sku" | "product" | "strength" | "noMoqPen" | "moq50Pen";
@@ -77,6 +78,7 @@ function AddOnInput({
 }
 
 export default function Home() {
+  const { products: mergedProducts } = useMergedProducts();
   const [hardware, setHardware] = useState(5);
   const [packaging, setPackaging] = useState(2);
   const [packagingLabor, setPackagingLabor] = useState(1.5);
@@ -157,7 +159,7 @@ export default function Home() {
       const pv = perVial(price);
       return pv == null ? null : pv + addOns;
     };
-    return products.map(
+    return mergedProducts.map(
       (p: Product): Row => ({
         ...p,
         noMoqVial: perVial(p.noMoq),
@@ -166,7 +168,7 @@ export default function Home() {
         moq50Pen: penPrice(p.moq50),
       }),
     );
-  }, [addOns]);
+  }, [addOns, mergedProducts]);
 
   const sortRows = (input: Row[]) => {
     const dir = sortDir === "asc" ? 1 : -1;

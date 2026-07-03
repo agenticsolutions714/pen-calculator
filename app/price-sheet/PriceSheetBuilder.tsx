@@ -9,6 +9,7 @@ import {
   buildPriceSheet,
 } from "../data/pricing";
 import type { Brand } from "../data/products";
+import { useMergedProducts } from "../data/auraOverrides";
 import { createPreset, deletePreset } from "../actions/brokerage";
 import type { PricingPresetRow } from "../db/schema";
 
@@ -23,6 +24,7 @@ export default function PriceSheetBuilder({
   presets: PricingPresetRow[];
 }) {
   const router = useRouter();
+  const { products: mergedProducts } = useMergedProducts();
   const [isPending, startTransition] = useTransition();
 
   const [mode, setMode] = useState<PriceMode>("markup");
@@ -38,14 +40,17 @@ export default function PriceSheetBuilder({
 
   const rows = useMemo(
     () =>
-      buildPriceSheet({
-        mode,
-        pct: pctValid ? pct : 0,
-        basis,
-        brand,
-        search,
-      }),
-    [mode, pct, pctValid, basis, brand, search],
+      buildPriceSheet(
+        {
+          mode,
+          pct: pctValid ? pct : 0,
+          basis,
+          brand,
+          search,
+        },
+        mergedProducts,
+      ),
+    [mode, pct, pctValid, basis, brand, search, mergedProducts],
   );
 
   const totals = useMemo(() => {

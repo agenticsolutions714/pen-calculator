@@ -56,11 +56,14 @@ export function productLabel(p: Product): string {
   return parts.join(" · ");
 }
 
-export function buildPriceSheet(config: PriceSheetConfig): PriceSheetRow[] {
+export function buildPriceSheet(
+  config: PriceSheetConfig,
+  list: Product[] = products,
+): PriceSheetRow[] {
   const search = config.search.trim().toLowerCase();
   const rows: PriceSheetRow[] = [];
 
-  for (const p of products) {
+  for (const p of list) {
     if (config.brand !== "all" && p.brand !== config.brand) continue;
 
     const cost = config.basis === "moq50" ? p.moq50 : p.noMoq;

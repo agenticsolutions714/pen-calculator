@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import Nav from "../components/Nav";
-import {
-  AURA_CATEGORIES,
-  auraProducts,
-  type Product,
-} from "../data/products";
+import { AURA_CATEGORIES, type Product } from "../data/products";
+import { useMergedProducts } from "../data/auraOverrides";
 import {
   type CatalogEntry,
   type CatalogMap,
@@ -48,6 +46,11 @@ const CATEGORY_STYLE: Record<
     header: "text-rose-700",
     dot: "bg-rose-400",
     chip: "bg-rose-50 text-rose-700 ring-rose-200",
+  },
+  Supplies: {
+    header: "text-slate-600",
+    dot: "bg-slate-400",
+    chip: "bg-slate-50 text-slate-600 ring-slate-200",
   },
 };
 
@@ -98,6 +101,7 @@ function StatCard({
 }
 
 export default function CatalogPage() {
+  const { auraResolved } = useMergedProducts();
   const [map, setMap] = useState<CatalogMap>({});
   const [hydrated, setHydrated] = useState(false);
   const [actionOnly, setActionOnly] = useState(false);
@@ -120,7 +124,7 @@ export default function CatalogPage() {
 
   const rows = useMemo(
     () =>
-      auraProducts.map((p) => {
+      auraResolved.map((p) => {
         const key = catKey(p.brand, p.sku);
         const entry = getCatalogEntry(map, key);
         const priced = isPriced(p);
@@ -129,7 +133,7 @@ export default function CatalogPage() {
           !priced || !strength || entry.labelStatus !== "received";
         return { p, key, entry, priced, strength, needsAction };
       }),
-    [map],
+    [auraResolved, map],
   );
 
   const stats = useMemo(() => {
@@ -231,6 +235,12 @@ export default function CatalogPage() {
       )}
 
       <div className="no-print mb-4 flex flex-wrap items-center gap-3">
+        <Link
+          href="/catalog/edit"
+          className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700"
+        >
+          Bulk edit
+        </Link>
         <label className="flex items-center gap-2 text-sm text-neutral-600">
           <input
             type="checkbox"
