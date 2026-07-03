@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { products, type Product, type Brand } from "../data/products";
+import { products, BRANDS, type Product, type Brand } from "../data/products";
 import Nav from "../components/Nav";
 import {
   type MatchedRow,
@@ -505,7 +505,7 @@ export default function Restock() {
 
         <div className="no-print mb-6 flex flex-wrap items-center gap-4">
           <div className="flex gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-sm">
-            {(["Standard"] as Brand[]).map((b) => (
+            {BRANDS.map((b) => (
               <button
                 key={b}
                 onClick={() => setBrand(b)}

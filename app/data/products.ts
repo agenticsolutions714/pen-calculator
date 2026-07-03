@@ -1,4 +1,6 @@
-export type Brand = "Standard";
+export type Brand = "Standard" | "Aura";
+
+export const BRANDS: Brand[] = ["Standard", "Aura"];
 
 export type Product = {
   brand: Brand;
@@ -11,9 +13,13 @@ export type Product = {
   vialsPerPack: number;
   noMoq: number | null;
   moq50: number | null;
+  // Optional merchandising metadata. Used by the Aura line (captured from the
+  // supplier label sheet); Standard products leave these undefined.
+  category?: string;
+  subtitle?: string;
 };
 
-export const products: Product[] = [
+export const standardProducts: Product[] = [
   { brand: "Standard", sku: "CJC5", product: "CJC-1295 (without DAC)", strength: 5, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: 106, moq50: 77 },
   { brand: "Standard", sku: "CJC10", product: "CJC-1295 (without DAC)", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: 173, moq50: 126 },
   { brand: "Standard", sku: "CJCD2", product: "CJC-1295 (with DAC)", strength: 2, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: 165, moq50: 120 },
@@ -200,3 +206,54 @@ export const products: Product[] = [
   { brand: "Standard", sku: "CJC2", product: "CJC-1295 (without DAC)", strength: 2, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: 70, moq50: 51 },
 
 ];
+
+// --- Aura Labs (supplier brand) ---------------------------------------------
+// Product line captured from Aura Labs' label sheet (aura.all.labels.pdf),
+// grouped into the five color-coded categories printed on the labels.
+// Commercial data is not yet available: noMoq / moq50 are left null until a
+// supplier price list is entered, so these are skipped by buildPriceSheet and
+// never produce a fabricated price. Vial spec defaults to the house standard
+// (3 mL, 10 vials/pack). Strengths for compounds shared with the Standard line
+// use the Standard-catalog value; six labels printed a placeholder "1000MG"
+// and were corrected. Dihexa has no Standard reference — strength left null (TBD).
+export const auraProducts: Product[] = [
+  // Healing & Recovery
+  { brand: "Aura", sku: "A-CU70", product: "GHK-Cu", strength: 70, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "Copper Peptide" },
+  { brand: "Aura", sku: "A-GLOW70", product: "GLOW", strength: 70, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "GHK-Cu + BPC-157 + TB-500" },
+  { brand: "Aura", sku: "A-BPC10", product: "BPC-157", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "Body Protection Compound 157" },
+  { brand: "Aura", sku: "A-TB10", product: "TB-500", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "Thymosin Beta-4" },
+  { brand: "Aura", sku: "A-KLOW80", product: "KLOW", strength: 80, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "KPV + GHK-Cu + BPC-157 + TB-500" },
+  { brand: "Aura", sku: "A-KPV10", product: "KPV", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "Lysine-Proline-Valine Tripeptide" },
+
+  // Weight Loss
+  { brand: "Aura", sku: "A-GLP1S", product: "GLP-1 S", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Single Hormone Agonist · GLP-1" },
+  { brand: "Aura", sku: "A-GLP2TZ", product: "GLP-2 TZ", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Dual Hormone Agonist · GIP/GLP-1" },
+  { brand: "Aura", sku: "A-GLP3R", product: "GLP-3 R", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Triple Hormone Agonist · GIP/GLP-1/Glucagon" },
+  { brand: "Aura", sku: "A-MOTS10", product: "MOTS-c", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Mitochondrial ORF of the 12S rRNA-c" },
+  { brand: "Aura", sku: "A-AOD10", product: "AOD-9604", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Fragment 176-191" },
+
+  // Anti-Aging
+  { brand: "Aura", sku: "A-EPI10", product: "Epithalon", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Anti-Aging", subtitle: "Pineal Tetrapeptide" },
+  { brand: "Aura", sku: "A-NAD1000", product: "NAD+", strength: 1000, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Anti-Aging", subtitle: "Nicotinamide Adenine Dinucleotide" },
+  { brand: "Aura", sku: "A-GLUT1000", product: "Glutathione", strength: 1000, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Anti-Aging", subtitle: "Glutamine / Glycine / Cysteine" },
+
+  // Cognitive
+  { brand: "Aura", sku: "A-SEMAX10", product: "Semax", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Cognitive", subtitle: "Heptapeptide analog of ACTH(4-7)" },
+  { brand: "Aura", sku: "A-SELANK10", product: "Selank", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Cognitive", subtitle: "Nootropic anxiolytic peptide" },
+  { brand: "Aura", sku: "A-DIHEXA", product: "Dihexa", strength: null, strengthUnit: "", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Cognitive", subtitle: "N-hexanoic-Tyr-Ile-(6) aminohexanoic amide" },
+
+  // Sexual Health
+  { brand: "Aura", sku: "A-KISS10", product: "Kisspeptin-10", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Sexual Health", subtitle: "10-amino-acid peptide" },
+  { brand: "Aura", sku: "A-MT2", product: "Melanotan II", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Sexual Health", subtitle: "Heptapeptide analogue of α-MSH" },
+];
+
+export const AURA_CATEGORIES = [
+  "Healing & Recovery",
+  "Weight Loss",
+  "Anti-Aging",
+  "Cognitive",
+  "Sexual Health",
+] as const;
+
+// Full catalog exposed to the rest of the app: Standard + Aura combined.
+export const products: Product[] = [...standardProducts, ...auraProducts];

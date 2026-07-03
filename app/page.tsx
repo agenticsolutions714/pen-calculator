@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { products, type Product, type Brand } from "./data/products";
+import { products, BRANDS, type Product, type Brand } from "./data/products";
 import Nav from "./components/Nav";
 
 type SortKey = "sku" | "product" | "strength" | "noMoqPen" | "moq50Pen";
@@ -315,7 +315,7 @@ export default function Home() {
         )}
 
         <div className="mb-6 flex gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-sm sm:inline-flex">
-          {(["Standard"] as Brand[]).map((b) => (
+          {BRANDS.map((b) => (
             <button
               key={b}
               onClick={() => setBrand(b)}

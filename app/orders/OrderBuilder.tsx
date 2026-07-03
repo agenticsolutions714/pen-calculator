@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { products, type Brand } from "../data/products";
+import { products, BRANDS, type Brand } from "../data/products";
 import {
   dealEconomics,
   lineEconomics,
@@ -543,7 +543,11 @@ export default function OrderBuilder({ clients, buyers, deals, presets }: Props)
               onChange={(e) => setBrand(e.target.value as Brand)}
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
             >
-              <option value="Standard">Standard</option>
+              {BRANDS.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
             </select>
           </label>
 
