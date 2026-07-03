@@ -239,7 +239,8 @@ export const auraProducts: Product[] = [
   // Anti-Aging
   { brand: "Aura", sku: "A-EPI10", product: "Epithalon", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Anti-Aging", subtitle: "Pineal Tetrapeptide" },
   { brand: "Aura", sku: "A-NAD1000", product: "NAD+", strength: 1000, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Anti-Aging", subtitle: "Nicotinamide Adenine Dinucleotide" },
-  { brand: "Aura", sku: "A-GLUT1000", product: "Glutathione", strength: 1000, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Anti-Aging", subtitle: "Glutamine / Glycine / Cysteine" },
+  // No Standard-sheet equivalent, so no strength to inherit — left null (TBD).
+  { brand: "Aura", sku: "A-GLUT1000", product: "Glutathione", strength: null, strengthUnit: "", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Anti-Aging", subtitle: "Glutamine / Glycine / Cysteine" },
 
   // Cognitive
   { brand: "Aura", sku: "A-SEMAX10", product: "Semax", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Cognitive", subtitle: "Heptapeptide analog of ACTH(4-7)" },

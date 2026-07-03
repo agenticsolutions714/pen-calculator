@@ -270,6 +270,12 @@ export default function CatalogPage() {
         >
           Bulk edit
         </Link>
+        <Link
+          href="/catalog/order"
+          className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+        >
+          Order from Standard
+        </Link>
         <label className="flex items-center gap-2 text-sm text-neutral-600">
           <input
             type="checkbox"
