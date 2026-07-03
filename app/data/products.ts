@@ -230,9 +230,9 @@ export const auraProducts: Product[] = [
   { brand: "Aura", sku: "A-KPV10", product: "KPV", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "Lysine-Proline-Valine Tripeptide" },
 
   // Weight Loss
-  { brand: "Aura", sku: "A-GLP1S", product: "GLP-1 S", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Single Hormone Agonist · GLP-1" },
-  { brand: "Aura", sku: "A-GLP2TZ", product: "GLP-2 TZ", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Dual Hormone Agonist · GIP/GLP-1" },
-  { brand: "Aura", sku: "A-GLP3R", product: "GLP-3 R", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Triple Hormone Agonist · GIP/GLP-1/Glucagon" },
+  { brand: "Aura", sku: "A-GLP1S", product: "GLP-1 S", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Semaglutide · single agonist (GLP-1)" },
+  { brand: "Aura", sku: "A-GLP2TZ", product: "GLP-2 TZ", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Tirzepatide · dual agonist (GIP/GLP-1)" },
+  { brand: "Aura", sku: "A-GLP3R", product: "GLP-3 R", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Retatrutide · triple agonist (GIP/GLP-1/glucagon)" },
   { brand: "Aura", sku: "A-MOTS10", product: "MOTS-c", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Mitochondrial ORF of the 12S rRNA-c" },
   { brand: "Aura", sku: "A-AOD10", product: "AOD-9604", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Fragment 176-191" },
 

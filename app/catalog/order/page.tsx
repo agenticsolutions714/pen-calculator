@@ -65,7 +65,10 @@ export default function AuraOrderPage() {
   // Preload one row per mg option per peptide: each Aura peptide expands to the
   // full strength family its Standard source belongs to.
   const allRows = useMemo(() => {
-    const byName = new Map<string, { name: string; category?: string; variants: Product[] }>();
+    const byName = new Map<
+      string,
+      { name: string; compound: string; category?: string; variants: Product[] }
+    >();
     for (const a of auraResolved) {
       if (!a.sourceSku) continue;
       const src = standardBySku.get(a.sourceSku);
@@ -73,10 +76,21 @@ export default function AuraOrderPage() {
       const variants = standardProducts
         .filter((p) => p.product === src.product)
         .sort((x, y) => (x.strength ?? 0) - (y.strength ?? 0));
-      byName.set(src.product, { name: a.product, category: a.category, variants });
+      byName.set(src.product, {
+        name: a.product,
+        compound: src.product,
+        category: a.category,
+        variants,
+      });
     }
     const rows: OrderRow[] = [];
     for (const g of byName.values()) {
+      // Show the underlying Standard compound when the Aura name differs
+      // (e.g. "GLP-1 S (Semaglutide)").
+      const head =
+        g.compound && g.compound !== g.name
+          ? `${g.name} (${g.compound})`
+          : g.name;
       for (const v of g.variants) {
         const strengthPart =
           v.strength != null ? ` · ${v.strength}${v.strengthUnit}` : "";
@@ -87,7 +101,7 @@ export default function AuraOrderPage() {
           strength: v.strength,
           strengthUnit: v.strengthUnit,
           vialsPerPack: v.vialsPerPack,
-          label: `${g.name}${strengthPart} · ${v.vialSize}${v.vialUnit}`,
+          label: `${head}${strengthPart} · ${v.vialSize}${v.vialUnit}`,
           unit: v.noMoq ?? 0,
         });
       }
