@@ -6,6 +6,13 @@ import Nav from "../components/Nav";
 import { AURA_CATEGORIES, type Product } from "../data/products";
 import { useMergedProducts } from "../data/auraOverrides";
 import {
+  type BatchMap,
+  ensureBatches,
+  loadBatches,
+  regenerateBatch,
+  saveBatches,
+} from "../data/batches";
+import {
   type CatalogEntry,
   type CatalogMap,
   type LabelStatus,
@@ -105,15 +112,36 @@ export default function CatalogPage() {
   const [map, setMap] = useState<CatalogMap>({});
   const [hydrated, setHydrated] = useState(false);
   const [actionOnly, setActionOnly] = useState(false);
+  const [batches, setBatches] = useState<BatchMap>({});
+  const [batchHydrated, setBatchHydrated] = useState(false);
 
   useEffect(() => {
     setMap(loadCatalog());
+    setBatches(loadBatches());
+    setBatchHydrated(true);
     setHydrated(true);
   }, []);
 
   useEffect(() => {
     if (hydrated) saveCatalog(map);
   }, [map, hydrated]);
+
+  // Assign a unique batch number to any SKU that doesn't have one yet.
+  useEffect(() => {
+    if (!batchHydrated) return;
+    const next = ensureBatches(
+      auraResolved.map((p) => p.sku),
+      batches,
+    );
+    if (next !== batches) setBatches(next);
+  }, [auraResolved, batches, batchHydrated]);
+
+  useEffect(() => {
+    if (batchHydrated) saveBatches(batches);
+  }, [batches, batchHydrated]);
+
+  const regenerate = (sku: string) =>
+    setBatches((prev) => regenerateBatch(sku, prev));
 
   const updateEntry = (key: string, patch: Partial<CatalogEntry>) => {
     setMap((prev) => {
@@ -156,7 +184,8 @@ export default function CatalogPage() {
   const copyOrderList = () => {
     const lines = stats.toOrder.map((r) => {
       const qty = r.entry.labelQty ? `${r.entry.labelQty}×` : "—";
-      return `${qty}\t${r.p.product} ${strengthLabel(r.p)}\t${r.p.sku}`;
+      const batch = batches[r.p.sku] ?? "";
+      return `${qty}\t${r.p.product} ${strengthLabel(r.p)}\t${r.p.sku}\t${batch}`;
     });
     const text = lines.length
       ? `Aura labels to order\n${lines.join("\n")}`
@@ -290,6 +319,7 @@ export default function CatalogPage() {
                     <th className="px-3 py-2 font-medium">Product</th>
                     <th className="px-3 py-2 font-medium">Strength</th>
                     <th className="px-3 py-2 font-medium">SKU</th>
+                    <th className="px-3 py-2 font-medium">Batch</th>
                     <th className="px-3 py-2 font-medium">Price</th>
                     <th className="px-3 py-2 font-medium">Label status</th>
                     <th className="px-3 py-2 font-medium">Qty</th>
@@ -321,6 +351,20 @@ export default function CatalogPage() {
                       </td>
                       <td className="px-3 py-2 font-mono text-xs text-neutral-500">
                         {p.sku}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1">
+                          <span className="font-mono text-xs font-semibold tracking-wider text-neutral-800">
+                            {batches[p.sku] ?? "—"}
+                          </span>
+                          <button
+                            onClick={() => regenerate(p.sku)}
+                            title="Regenerate batch number"
+                            className="no-print text-xs text-neutral-300 hover:text-neutral-700"
+                          >
+                            ↻
+                          </button>
+                        </div>
                       </td>
                       <td className="px-3 py-2">
                         <StatusBadge
@@ -399,6 +443,7 @@ export default function CatalogPage() {
                   <th className="px-3 py-2 font-medium">Qty</th>
                   <th className="px-3 py-2 font-medium">Product</th>
                   <th className="px-3 py-2 font-medium">SKU</th>
+                  <th className="px-3 py-2 font-medium">Batch</th>
                   <th className="px-3 py-2 font-medium">Note</th>
                 </tr>
               </thead>
@@ -416,6 +461,9 @@ export default function CatalogPage() {
                     </td>
                     <td className="px-3 py-2 font-mono text-xs text-neutral-500">
                       {r.p.sku}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs font-semibold tracking-wider text-neutral-800">
+                      {batches[r.p.sku] ?? "—"}
                     </td>
                     <td className="px-3 py-2 text-neutral-500">
                       {r.entry.note || "—"}
