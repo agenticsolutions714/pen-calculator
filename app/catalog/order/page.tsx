@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import Nav from "../../components/Nav";
 import {
@@ -10,13 +10,10 @@ import {
   type Product,
 } from "../../data/products";
 import { useMergedProducts } from "../../data/auraOverrides";
+import { useSharedMap } from "../../data/sharedState";
 
 const currency = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
-
-const ORDER_KEY = "pen-calc-aura-order";
-
-type OrderMap = Record<string, number>;
 
 type OrderRow = {
   sku: string;
@@ -45,37 +42,15 @@ const STANDARD_PEPTIDES = (() => {
 export default function AuraOrderPage() {
   const { auraResolved, addFromStandard, additions, removeAddition } =
     useMergedProducts();
-  const [order, setOrder] = useState<OrderMap>({});
+  const orderStore = useSharedMap<number>("order");
+  const order = orderStore.map;
+  const hydrated = orderStore.hydrated;
   const [search, setSearch] = useState("");
-  const [hydrated, setHydrated] = useState(false);
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(ORDER_KEY);
-      if (stored) setOrder(JSON.parse(stored));
-    } catch {
-      // ignore
-    }
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (hydrated) {
-      try {
-        localStorage.setItem(ORDER_KEY, JSON.stringify(order));
-      } catch {
-        // ignore
-      }
-    }
-  }, [order, hydrated]);
-
-  const setQty = (sku: string, qty: number) =>
-    setOrder((prev) => {
-      const next = { ...prev };
-      if (!qty || qty <= 0 || Number.isNaN(qty)) delete next[sku];
-      else next[sku] = qty;
-      return next;
-    });
+  const setQty = (sku: string, qty: number) => {
+    if (!qty || qty <= 0 || Number.isNaN(qty)) orderStore.removeItem(sku);
+    else orderStore.setItem(sku, qty);
+  };
 
   // Preload one row per mg option per peptide: each Aura peptide expands to the
   // full strength family its Standard source belongs to.
@@ -221,7 +196,7 @@ export default function AuraOrderPage() {
     URL.revokeObjectURL(url);
   };
 
-  const clearOrder = () => setOrder({});
+  const clearOrder = () => orderStore.clear();
 
   return (
     <main className="mx-auto max-w-5xl px-4 pb-20 sm:px-6 lg:px-8">

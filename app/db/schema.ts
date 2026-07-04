@@ -6,6 +6,7 @@ import {
   real,
   timestamp,
   jsonb,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import type { DealLineItem } from "../data/economics";
 
@@ -97,6 +98,25 @@ export const deals = pgTable("deals", {
     .notNull()
     .defaultNow(),
 });
+
+// Shared, multi-user Aura working state. Per-item rows (one per store+item) so
+// two people editing different items don't clobber each other. Stores:
+// "overrides" | "additions" | "batches" | "labels" | "order". Replaces the
+// former per-browser localStorage so the Aura line can be worked on together.
+export const auraState = pgTable(
+  "aura_state",
+  {
+    store: text("store").notNull(),
+    item: text("item").notNull(),
+    value: jsonb("value").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.store, t.item] })],
+);
+
+export type AuraStateRow = typeof auraState.$inferSelect;
 
 export type ClientRow = typeof clients.$inferSelect;
 export type BuyerRow = typeof buyers.$inferSelect;

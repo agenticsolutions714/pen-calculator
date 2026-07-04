@@ -21,7 +21,8 @@ export default function AuraEditor() {
   const {
     auraResolved,
     overrides,
-    setOverrides,
+    setOverride,
+    resetOverrides,
     addFromStandard,
     removeAddition,
     addedSkus,
@@ -38,66 +39,46 @@ export default function AuraEditor() {
   };
 
   const setSource = (sku: string, sourceSku: string | null) =>
-    setOverrides((prev) => ({
-      ...prev,
-      [sku]: { ...prev[sku], sourceSku },
-    }));
+    setOverride(sku, { ...overrides[sku], sourceSku });
 
-  const setStrength = (sku: string, value: string) =>
-    setOverrides((prev) => {
-      const next = { ...prev[sku] };
-      if (value.trim() === "") {
-        // blank ⇒ clear the manual override, fall back to the source strength
-        delete next.strength;
-      } else {
-        next.strength = Number(value);
-      }
-      return { ...prev, [sku]: next };
-    });
+  const setStrength = (sku: string, value: string) => {
+    const next = { ...overrides[sku] };
+    if (value.trim() === "") delete next.strength;
+    else next.strength = Number(value);
+    setOverride(sku, next);
+  };
 
-  const clearStrength = (sku: string) =>
-    setOverrides((prev) => {
-      const next = { ...prev[sku] };
-      delete next.strength;
-      return { ...prev, [sku]: next };
-    });
+  const clearStrength = (sku: string) => {
+    const next = { ...overrides[sku] };
+    delete next.strength;
+    setOverride(sku, next);
+  };
 
   // Clear every manual strength override so all strengths inherit their source.
-  const fillStrengthsFromSource = () =>
-    setOverrides((prev) => {
-      const next: typeof prev = {};
-      for (const [sku, o] of Object.entries(prev)) {
-        const rest = { ...o };
-        delete rest.strength;
-        if (Object.keys(rest).length) next[sku] = rest;
-      }
-      return next;
-    });
+  const fillStrengthsFromSource = () => {
+    for (const [sku, o] of Object.entries(overrides)) {
+      if (o.strength === undefined) continue;
+      const rest = { ...o };
+      delete rest.strength;
+      setOverride(sku, rest);
+    }
+  };
 
-  const resetAll = () => setOverrides({});
+  const resetAll = () => resetOverrides();
 
   // Paste a column copied from a spreadsheet: one value per row, top-to-bottom
   // in the order shown. Empty cells are skipped.
   const pasteColumn = async (field: "sourceSku" | "strength") => {
     try {
       const text = await navigator.clipboard.readText();
-      const cells = text
-        .split(/\r?\n/)
-        .map((c) => c.split("\t")[0].trim());
-      setOverrides((prev) => {
-        const next = { ...prev };
-        auraResolved.forEach((p, i) => {
-          const cell = cells[i];
-          if (cell == null || cell === "") return;
-          const cur = { ...next[p.sku] };
-          if (field === "sourceSku") {
-            cur.sourceSku = cell;
-          } else {
-            cur.strength = Number(cell);
-          }
-          next[p.sku] = cur;
-        });
-        return next;
+      const cells = text.split(/\r?\n/).map((c) => c.split("\t")[0].trim());
+      auraResolved.forEach((p, i) => {
+        const cell = cells[i];
+        if (cell == null || cell === "") return;
+        const cur = { ...overrides[p.sku] };
+        if (field === "sourceSku") cur.sourceSku = cell;
+        else cur.strength = Number(cell);
+        setOverride(p.sku, cur);
       });
     } catch {
       // clipboard blocked — no-op

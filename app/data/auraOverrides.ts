@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import {
   type AuraResolveOverride,
   type Product,
@@ -9,6 +9,7 @@ import {
   standardBySku,
   standardProducts,
 } from "./products";
+import { useSharedMap } from "./sharedState";
 
 // One orderable/labelable row per mg option: each sourced Aura peptide expands
 // to the full strength family of its Standard source; unsourced peptides stay a
@@ -98,33 +99,6 @@ export type AuraAddition = {
   sourceSku: string;
 };
 
-export const AURA_OVERRIDES_KEY = "pen-calc-aura-overrides";
-export const AURA_ADDITIONS_KEY = "pen-calc-aura-additions";
-
-function loadJson<T>(key: string, fallback: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    if (!stored) return fallback;
-    const parsed = JSON.parse(stored);
-    return parsed ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveJson(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // ignore write failures (e.g. storage disabled)
-  }
-}
-
-export const loadAuraOverrides = (): AuraOverrideMap =>
-  loadJson<AuraOverrideMap>(AURA_OVERRIDES_KEY, {});
-export const loadAuraAdditions = (): AuraAddition[] =>
-  loadJson<AuraAddition[]>(AURA_ADDITIONS_KEY, []);
-
 // Turn a user addition into a seed Product, inheriting vial spec from its
 // Standard source, then resolving strength + cost through the shared resolver.
 function additionToProduct(a: AuraAddition): Product {
@@ -169,24 +143,17 @@ function makeAuraSku(sourceSku: string, taken: Set<string>): string {
 }
 
 // Client hook: the full catalog (Standard + Aura, incl. additions) with user
-// overrides applied, plus editing APIs that persist to localStorage.
+// overrides applied, backed by the shared Postgres state so multiple people can
+// edit the Aura line at the same time.
 export function useMergedProducts() {
-  const [overrides, setOverrides] = useState<AuraOverrideMap>({});
-  const [additions, setAdditions] = useState<AuraAddition[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const ov = useSharedMap<AuraResolveOverride>("overrides");
+  const ad = useSharedMap<AuraAddition>("additions");
 
-  useEffect(() => {
-    setOverrides(loadAuraOverrides());
-    setAdditions(loadAuraAdditions());
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (hydrated) saveJson(AURA_OVERRIDES_KEY, overrides);
-  }, [overrides, hydrated]);
-  useEffect(() => {
-    if (hydrated) saveJson(AURA_ADDITIONS_KEY, additions);
-  }, [additions, hydrated]);
+  const overrides = ov.map;
+  const additions = useMemo(
+    () => Object.values(ad.map) as AuraAddition[],
+    [ad.map],
+  );
 
   const auraResolved = useMemo(
     () => buildAuraList(overrides, additions),
@@ -197,54 +164,65 @@ export function useMergedProducts() {
     [auraResolved],
   );
 
+  // Upsert (or clear, when empty) a single SKU's override.
+  const setOverride = useCallback(
+    (sku: string, override: AuraResolveOverride) => {
+      if (override.sourceSku === undefined && override.strength === undefined) {
+        ov.removeItem(sku);
+      } else {
+        ov.setItem(sku, override);
+      }
+    },
+    [ov],
+  );
+
+  const resetOverrides = useCallback(() => ov.clear(), [ov]);
+
   // Add a Standard SKU into the Aura line as a new relabeled product.
   const addFromStandard = useCallback(
     (sourceSku: string, category: string) => {
       const src = standardBySku.get(sourceSku);
       if (!src) return;
-      setAdditions((prev) => {
-        const taken = new Set([
-          ...auraProducts.map((p) => p.sku),
-          ...prev.map((a) => a.sku),
-        ]);
-        const sku = makeAuraSku(sourceSku, taken);
-        const subtitle =
-          src.strength != null
-            ? `${src.strength}${src.strengthUnit} · from Standard ${src.sku}`
-            : `from Standard ${src.sku}`;
-        return [
-          ...prev,
-          { sku, product: src.product, subtitle, category, sourceSku },
-        ];
+      const taken = new Set([
+        ...auraProducts.map((p) => p.sku),
+        ...Object.keys(ad.map),
+      ]);
+      const sku = makeAuraSku(sourceSku, taken);
+      const subtitle =
+        src.strength != null
+          ? `${src.strength}${src.strengthUnit} · from Standard ${src.sku}`
+          : `from Standard ${src.sku}`;
+      ad.setItem(sku, {
+        sku,
+        product: src.product,
+        subtitle,
+        category,
+        sourceSku,
       });
     },
-    [],
+    [ad],
   );
 
-  const removeAddition = useCallback((sku: string) => {
-    setAdditions((prev) => prev.filter((a) => a.sku !== sku));
-    setOverrides((prev) => {
-      if (!(sku in prev)) return prev;
-      const next = { ...prev };
-      delete next[sku];
-      return next;
-    });
-  }, []);
-
-  const addedSkus = useMemo(
-    () => new Set(additions.map((a) => a.sku)),
-    [additions],
+  const removeAddition = useCallback(
+    (sku: string) => {
+      ad.removeItem(sku);
+      ov.removeItem(sku);
+    },
+    [ad, ov],
   );
+
+  const addedSkus = useMemo(() => new Set(Object.keys(ad.map)), [ad.map]);
 
   return {
     products,
     auraResolved,
     overrides,
-    setOverrides,
+    setOverride,
+    resetOverrides,
     additions,
     addFromStandard,
     removeAddition,
     addedSkus,
-    hydrated,
+    hydrated: ov.hydrated && ad.hydrated,
   };
 }

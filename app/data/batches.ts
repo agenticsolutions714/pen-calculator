@@ -32,6 +32,11 @@ function uniqueBatch(used: Set<string>): string {
   return b;
 }
 
+// A fresh unique batch avoiding the given in-use codes.
+export function freshBatch(inUse: string[]): string {
+  return uniqueBatch(new Set(inUse));
+}
+
 export function loadBatches(): BatchMap {
   try {
     const stored = localStorage.getItem(BATCHES_KEY);

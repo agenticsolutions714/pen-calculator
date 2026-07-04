@@ -9,23 +9,15 @@ import {
   expandAuraVariants,
   useMergedProducts,
 } from "../data/auraOverrides";
-import {
-  type BatchMap,
-  ensureBatches,
-  loadBatches,
-  regenerateBatch,
-  saveBatches,
-} from "../data/batches";
+import { freshBatch } from "../data/batches";
+import { useSharedMap } from "../data/sharedState";
 import {
   type CatalogEntry,
-  type CatalogMap,
   type LabelStatus,
   DEFAULT_CATALOG_ENTRY,
   LABEL_STATUSES,
   catKey,
   getCatalogEntry,
-  loadCatalog,
-  saveCatalog,
 } from "../data/catalog";
 
 // Category → color treatment, mirroring the printed Aura label sheet.
@@ -69,25 +61,8 @@ const isPriced = (p: AuraVariant) => p.noMoq != null && p.moq50 != null;
 const hasStrength = (p: AuraVariant) => p.strength != null;
 const strengthLabel = (p: AuraVariant) =>
   p.strength == null ? "—" : `${p.strength}${p.strengthUnit}`;
-
-function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
-        ok
-          ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-          : "bg-amber-50 text-amber-700 ring-amber-200"
-      }`}
-    >
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          ok ? "bg-emerald-500" : "bg-amber-500"
-        }`}
-      />
-      {label}
-    </span>
-  );
-}
+const currency = (n: number) =>
+  n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
 function StatCard({
   label,
@@ -113,22 +88,11 @@ function StatCard({
 
 export default function CatalogPage() {
   const { auraResolved } = useMergedProducts();
-  const [map, setMap] = useState<CatalogMap>({});
-  const [hydrated, setHydrated] = useState(false);
+  const labels = useSharedMap<CatalogEntry>("labels");
+  const batchStore = useSharedMap<string>("batches");
+  const map = labels.map;
+  const batches = batchStore.map;
   const [actionOnly, setActionOnly] = useState(false);
-  const [batches, setBatches] = useState<BatchMap>({});
-  const [batchHydrated, setBatchHydrated] = useState(false);
-
-  useEffect(() => {
-    setMap(loadCatalog());
-    setBatches(loadBatches());
-    setBatchHydrated(true);
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (hydrated) saveCatalog(map);
-  }, [map, hydrated]);
 
   // Every mg option per peptide is its own labelable row.
   const variants = useMemo(
@@ -136,28 +100,28 @@ export default function CatalogPage() {
     [auraResolved],
   );
 
-  // Assign a unique batch number to any SKU that doesn't have one yet.
+  // Assign a unique batch number to any SKU that doesn't have one yet, and
+  // persist it to the shared store.
   useEffect(() => {
-    if (!batchHydrated) return;
-    const next = ensureBatches(
-      variants.map((v) => v.sku),
-      batches,
-    );
-    if (next !== batches) setBatches(next);
-  }, [variants, batches, batchHydrated]);
+    if (!batchStore.hydrated) return;
+    const used = new Set(Object.values(batches));
+    for (const v of variants) {
+      if (!batches[v.sku]) {
+        const b = freshBatch([...used]);
+        used.add(b);
+        batchStore.setItem(v.sku, b);
+      }
+    }
+  }, [variants, batches, batchStore]);
 
-  useEffect(() => {
-    if (batchHydrated) saveBatches(batches);
-  }, [batches, batchHydrated]);
-
-  const regenerate = (sku: string) =>
-    setBatches((prev) => regenerateBatch(sku, prev));
+  const regenerate = (sku: string) => {
+    const inUse = Object.values(batches).filter((b) => b !== batches[sku]);
+    batchStore.setItem(sku, freshBatch(inUse));
+  };
 
   const updateEntry = (key: string, patch: Partial<CatalogEntry>) => {
-    setMap((prev) => {
-      const current = prev[key] ?? DEFAULT_CATALOG_ENTRY;
-      return { ...prev, [key]: { ...current, ...patch } };
-    });
+    const current = map[key] ?? DEFAULT_CATALOG_ENTRY;
+    labels.setItem(key, { ...current, ...patch });
   };
 
   const rows = useMemo(
@@ -336,14 +300,14 @@ export default function CatalogPage() {
                     <th className="px-3 py-2 font-medium">Strength</th>
                     <th className="px-3 py-2 font-medium">SKU</th>
                     <th className="px-3 py-2 font-medium">Batch</th>
-                    <th className="px-3 py-2 font-medium">Price</th>
+                    <th className="px-3 py-2 font-medium">Std price</th>
                     <th className="px-3 py-2 font-medium">Label status</th>
                     <th className="px-3 py-2 font-medium">Qty</th>
                     <th className="px-3 py-2 font-medium">Note</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {catRows.map(({ p, key, entry, priced, strength }) => (
+                  {catRows.map(({ p, key, entry, strength }) => (
                     <tr
                       key={key}
                       className="border-b border-neutral-100 last:border-0"
@@ -382,11 +346,21 @@ export default function CatalogPage() {
                           </button>
                         </div>
                       </td>
-                      <td className="px-3 py-2">
-                        <StatusBadge
-                          ok={priced}
-                          label={priced ? "Set" : "Missing"}
-                        />
+                      <td className="px-3 py-2 tabular-nums">
+                        {p.noMoq != null ? (
+                          <span className="text-neutral-800">
+                            {currency(p.noMoq)}
+                            {p.moq50 != null && (
+                              <span className="ml-1 text-xs text-neutral-400">
+                                / {currency(p.moq50)}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-amber-600">
+                            Missing
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-2">
                         <select
