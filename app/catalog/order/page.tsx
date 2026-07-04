@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Nav from "../../components/Nav";
 import {
+  AURA_CATEGORIES,
   standardBySku,
   standardProducts,
   type Product,
@@ -20,7 +21,8 @@ type OrderMap = Record<string, number>;
 type OrderRow = {
   sku: string;
   peptide: string;
-  category?: string;
+  compound: string;
+  category: string;
   strength: number | null;
   strengthUnit: string;
   vialsPerPack: number;
@@ -28,8 +30,21 @@ type OrderRow = {
   unit: number;
 };
 
+// Distinct Standard peptide names, each with its representative (lowest-mg) SKU.
+const STANDARD_PEPTIDES = (() => {
+  const byName = new Map<string, Product>();
+  for (const p of standardProducts) {
+    const cur = byName.get(p.product);
+    if (!cur || (p.strength ?? 0) < (cur.strength ?? 0)) byName.set(p.product, p);
+  }
+  return [...byName.entries()]
+    .map(([name, rep]) => ({ name, repSku: rep.sku }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+})();
+
 export default function AuraOrderPage() {
-  const { auraResolved } = useMergedProducts();
+  const { auraResolved, addFromStandard, additions, removeAddition } =
+    useMergedProducts();
   const [order, setOrder] = useState<OrderMap>({});
   const [search, setSearch] = useState("");
   const [hydrated, setHydrated] = useState(false);
@@ -64,10 +79,10 @@ export default function AuraOrderPage() {
 
   // Preload one row per mg option per peptide: each Aura peptide expands to the
   // full strength family its Standard source belongs to.
-  const allRows = useMemo(() => {
+  const { allRows, usedCompounds } = useMemo(() => {
     const byName = new Map<
       string,
-      { name: string; compound: string; category?: string; variants: Product[] }
+      { name: string; compound: string; category: string; variants: Product[] }
     >();
     for (const a of auraResolved) {
       if (!a.sourceSku) continue;
@@ -79,14 +94,12 @@ export default function AuraOrderPage() {
       byName.set(src.product, {
         name: a.product,
         compound: src.product,
-        category: a.category,
+        category: a.category ?? "Supplies",
         variants,
       });
     }
     const rows: OrderRow[] = [];
     for (const g of byName.values()) {
-      // Show the underlying Standard compound when the Aura name differs
-      // (e.g. "GLP-1 S (Semaglutide)").
       const head =
         g.compound && g.compound !== g.name
           ? `${g.name} (${g.compound})`
@@ -97,6 +110,7 @@ export default function AuraOrderPage() {
         rows.push({
           sku: v.sku,
           peptide: g.name,
+          compound: g.compound,
           category: g.category,
           strength: v.strength,
           strengthUnit: v.strengthUnit,
@@ -106,28 +120,45 @@ export default function AuraOrderPage() {
         });
       }
     }
-    return rows.sort(
+    rows.sort(
       (a, b) =>
         a.peptide.localeCompare(b.peptide) ||
         (a.strength ?? 0) - (b.strength ?? 0),
     );
+    return {
+      allRows: rows,
+      usedCompounds: new Set([...byName.values()].map((g) => g.compound)),
+    };
   }, [auraResolved]);
 
-  const rows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return allRows;
-    return allRows.filter(
-      (r) =>
-        r.peptide.toLowerCase().includes(q) || r.sku.toLowerCase().includes(q),
-    );
-  }, [allRows, search]);
+  const q = search.trim().toLowerCase();
+  const rowMatches = (r: OrderRow) =>
+    !q ||
+    r.peptide.toLowerCase().includes(q) ||
+    r.compound.toLowerCase().includes(q) ||
+    r.sku.toLowerCase().includes(q);
 
-  const unsourced = useMemo(
-    () => auraResolved.filter((a) => !a.sourceSku),
-    [auraResolved],
+  // Standard peptides not yet in the Aura line — offered in the add dropdowns.
+  const availablePeptides = useMemo(
+    () => STANDARD_PEPTIDES.filter((p) => !usedCompounds.has(p.name)),
+    [usedCompounds],
   );
 
-  // Roll the entered quantities up into a Standard purchase order.
+  const addPeptide = (name: string, category: string) => {
+    const p = STANDARD_PEPTIDES.find((x) => x.name === name);
+    if (p) addFromStandard(p.repSku, category);
+  };
+
+  // Which added Aura SKU (if any) backs a given compound — so we can remove it.
+  const additionByCompound = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const a of additions) {
+      const src = standardBySku.get(a.sourceSku);
+      if (src) m.set(src.product, a.sku);
+    }
+    return m;
+  }, [additions]);
+
   const po = useMemo(() => {
     const lines = allRows
       .filter((r) => (order[r.sku] ?? 0) > 0)
@@ -202,9 +233,9 @@ export default function AuraOrderPage() {
             Order from Standard
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
-            Every mg Standard stocks for each peptide is preloaded below. Enter
-            quantities (in packs) next to the strengths you want; totals roll up
-            into a Standard purchase order.
+            Peptides are grouped by category with every mg Standard stocks
+            preloaded. Add a peptide to any category to populate its orderable
+            strengths, then enter quantities (in packs).
           </p>
         </div>
         <Link
@@ -221,7 +252,7 @@ export default function AuraOrderPage() {
         <Stat label="Total cost" value={currency(po.cost)} />
       </section>
 
-      <div className="no-print mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="no-print mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <input
           type="search"
           placeholder="Search by peptide or SKU…"
@@ -261,89 +292,132 @@ export default function AuraOrderPage() {
         </div>
       </div>
 
-      <section className="no-print overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
-        <div className="scroll-fade overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse text-sm">
-            <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
-              <tr>
-                <th className="px-5 py-3 font-medium">SKU</th>
-                <th className="px-5 py-3 font-medium">Product</th>
-                <th className="px-5 py-3 text-right font-medium">Cost/pack</th>
-                <th className="px-5 py-3 text-right font-medium">Qty (packs)</th>
-                <th className="px-5 py-3 text-right font-medium">Line total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-5 py-10 text-center text-sm text-neutral-400"
-                  >
-                    No peptides match your search.
-                  </td>
-                </tr>
-              ) : (
-                rows.map((r) => {
-                  const qty = order[r.sku] ?? 0;
-                  return (
-                    <tr
-                      key={r.sku}
-                      className={`border-t border-neutral-100 ${
-                        qty > 0 ? "bg-blue-50/50" : ""
-                      }`}
-                    >
-                      <td className="px-5 py-2 font-mono text-xs">{r.sku}</td>
-                      <td className="px-5 py-2">{r.label}</td>
-                      <td className="px-5 py-2 text-right tabular-nums text-neutral-500">
-                        {r.unit ? currency(r.unit) : "—"}
-                      </td>
-                      <td className="px-5 py-1.5 text-right">
-                        <input
-                          type="number"
-                          min={0}
-                          value={qty || ""}
-                          onChange={(e) =>
-                            setQty(
-                              r.sku,
-                              Math.max(0, Math.floor(Number(e.target.value) || 0)),
-                            )
-                          }
-                          placeholder="0"
-                          className="w-24 rounded-lg border border-neutral-300 px-2 py-1 text-right text-sm tabular-nums outline-none focus:border-neutral-900"
-                        />
-                      </td>
-                      <td className="px-5 py-2 text-right font-medium tabular-nums">
-                        {qty > 0 ? currency(r.unit * qty) : "—"}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-            {po.lines.length > 0 && (
-              <tfoot>
-                <tr className="border-t-2 border-neutral-200 bg-neutral-50 font-semibold">
-                  <td className="px-5 py-3" colSpan={3}>
-                    Total ({po.lines.length} lines, {po.packs} packs, {po.vials}{" "}
-                    vials)
-                  </td>
-                  <td />
-                  <td className="px-5 py-3 text-right tabular-nums">
-                    {currency(po.cost)}
-                  </td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
-      </section>
+      {AURA_CATEGORIES.map((category) => {
+        const catRows = allRows.filter(
+          (r) => r.category === category && rowMatches(r),
+        );
+        // Peptides in this category, to allow removing user-added ones.
+        const peptidesHere = [...new Set(catRows.map((r) => r.compound))];
+        return (
+          <section
+            key={category}
+            className="no-print mb-6 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 bg-neutral-50 px-5 py-2.5">
+              <h2 className="text-sm font-semibold text-neutral-900">
+                {category}
+                <span className="ml-2 font-normal text-neutral-400">
+                  {peptidesHere.length} peptide
+                  {peptidesHere.length === 1 ? "" : "s"}
+                </span>
+              </h2>
+              <AddPeptide
+                category={category}
+                options={availablePeptides.map((p) => p.name)}
+                onAdd={(name) => addPeptide(name, category)}
+              />
+            </div>
 
-      {unsourced.length > 0 && (
-        <p className="no-print mt-3 text-xs text-neutral-400">
-          No Standard source (order elsewhere):{" "}
-          {unsourced.map((u) => u.product).join(", ")}.
-        </p>
+            {catRows.length === 0 ? (
+              <p className="px-5 py-6 text-sm text-neutral-400">
+                No peptides here yet. Add one from Standard above to populate its
+                orderable strengths.
+              </p>
+            ) : (
+              <div className="scroll-fade overflow-x-auto">
+                <table className="w-full min-w-[640px] border-collapse text-sm">
+                  <thead className="text-left text-xs uppercase tracking-wide text-neutral-500">
+                    <tr>
+                      <th className="px-5 py-2 font-medium">SKU</th>
+                      <th className="px-5 py-2 font-medium">Product</th>
+                      <th className="px-5 py-2 text-right font-medium">
+                        Cost/pack
+                      </th>
+                      <th className="px-5 py-2 text-right font-medium">
+                        Qty (packs)
+                      </th>
+                      <th className="px-5 py-2 text-right font-medium">
+                        Line total
+                      </th>
+                      <th className="px-2 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {catRows.map((r) => {
+                      const qty = order[r.sku] ?? 0;
+                      const addedSku = additionByCompound.get(r.compound);
+                      const isFirstOfPeptide =
+                        catRows.find((x) => x.compound === r.compound) === r;
+                      return (
+                        <tr
+                          key={r.sku}
+                          className={`border-t border-neutral-100 ${
+                            qty > 0 ? "bg-blue-50/50" : ""
+                          }`}
+                        >
+                          <td className="px-5 py-2 font-mono text-xs">
+                            {r.sku}
+                          </td>
+                          <td className="px-5 py-2">{r.label}</td>
+                          <td className="px-5 py-2 text-right tabular-nums text-neutral-500">
+                            {r.unit ? currency(r.unit) : "—"}
+                          </td>
+                          <td className="px-5 py-1.5 text-right">
+                            <input
+                              type="number"
+                              min={0}
+                              value={qty || ""}
+                              onChange={(e) =>
+                                setQty(
+                                  r.sku,
+                                  Math.max(
+                                    0,
+                                    Math.floor(Number(e.target.value) || 0),
+                                  ),
+                                )
+                              }
+                              placeholder="0"
+                              className="w-24 rounded-lg border border-neutral-300 px-2 py-1 text-right text-sm tabular-nums outline-none focus:border-neutral-900"
+                            />
+                          </td>
+                          <td className="px-5 py-2 text-right font-medium tabular-nums">
+                            {qty > 0 ? currency(r.unit * qty) : "—"}
+                          </td>
+                          <td className="px-2 py-2 text-right">
+                            {addedSku && isFirstOfPeptide && (
+                              <button
+                                onClick={() => removeAddition(addedSku)}
+                                title={`Remove ${r.peptide} from the Aura line`}
+                                className="text-xs text-neutral-300 hover:text-red-600"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        );
+      })}
+
+      {po.lines.length > 0 && (
+        <section className="no-print mb-6 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <span className="font-semibold">PO → Standard</span>
+          <span className="text-neutral-500">{po.lines.length} lines</span>
+          <span className="text-neutral-500">{po.packs} packs</span>
+          <span className="text-neutral-500">{po.vials} vials</span>
+          <span className="flex items-center gap-2">
+            <span className="text-neutral-500">Total:</span>
+            <span className="rounded-md bg-neutral-900 px-2 py-1 font-semibold text-white">
+              {currency(po.cost)}
+            </span>
+          </span>
+        </section>
       )}
 
       {/* Print-only purchase order: ordered lines only */}
@@ -393,6 +467,47 @@ export default function AuraOrderPage() {
         </div>
       )}
     </main>
+  );
+}
+
+function AddPeptide({
+  category,
+  options,
+  onAdd,
+}: {
+  category: string;
+  options: string[];
+  onAdd: (name: string) => void;
+}) {
+  const [value, setValue] = useState("");
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        aria-label={`Add a peptide to ${category}`}
+        className="max-w-[14rem] rounded-lg border border-neutral-300 bg-white px-2 py-1 text-sm outline-none focus:border-neutral-900"
+      >
+        <option value="">Add peptide from Standard…</option>
+        {options.map((name) => (
+          <option key={name} value={name}>
+            {name}
+          </option>
+        ))}
+      </select>
+      <button
+        onClick={() => {
+          if (value) {
+            onAdd(value);
+            setValue("");
+          }
+        }}
+        disabled={!value}
+        className="rounded-lg bg-neutral-900 px-3 py-1 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-40"
+      >
+        Add
+      </button>
+    </div>
   );
 }
 

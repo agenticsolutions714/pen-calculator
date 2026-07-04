@@ -3,8 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Nav from "../components/Nav";
-import { AURA_CATEGORIES, type Product } from "../data/products";
-import { useMergedProducts } from "../data/auraOverrides";
+import { AURA_CATEGORIES } from "../data/products";
+import {
+  type AuraVariant,
+  expandAuraVariants,
+  useMergedProducts,
+} from "../data/auraOverrides";
 import {
   type BatchMap,
   ensureBatches,
@@ -61,9 +65,9 @@ const CATEGORY_STYLE: Record<
   },
 };
 
-const isPriced = (p: Product) => p.noMoq != null && p.moq50 != null;
-const hasStrength = (p: Product) => p.strength != null;
-const strengthLabel = (p: Product) =>
+const isPriced = (p: AuraVariant) => p.noMoq != null && p.moq50 != null;
+const hasStrength = (p: AuraVariant) => p.strength != null;
+const strengthLabel = (p: AuraVariant) =>
   p.strength == null ? "—" : `${p.strength}${p.strengthUnit}`;
 
 function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
@@ -126,15 +130,21 @@ export default function CatalogPage() {
     if (hydrated) saveCatalog(map);
   }, [map, hydrated]);
 
+  // Every mg option per peptide is its own labelable row.
+  const variants = useMemo(
+    () => expandAuraVariants(auraResolved),
+    [auraResolved],
+  );
+
   // Assign a unique batch number to any SKU that doesn't have one yet.
   useEffect(() => {
     if (!batchHydrated) return;
     const next = ensureBatches(
-      auraResolved.map((p) => p.sku),
+      variants.map((v) => v.sku),
       batches,
     );
     if (next !== batches) setBatches(next);
-  }, [auraResolved, batches, batchHydrated]);
+  }, [variants, batches, batchHydrated]);
 
   useEffect(() => {
     if (batchHydrated) saveBatches(batches);
@@ -152,8 +162,8 @@ export default function CatalogPage() {
 
   const rows = useMemo(
     () =>
-      auraResolved.map((p) => {
-        const key = catKey(p.brand, p.sku);
+      variants.map((p) => {
+        const key = catKey("Aura", p.sku);
         const entry = getCatalogEntry(map, key);
         const priced = isPriced(p);
         const strength = hasStrength(p);
@@ -161,7 +171,7 @@ export default function CatalogPage() {
           !priced || !strength || entry.labelStatus !== "received";
         return { p, key, entry, priced, strength, needsAction };
       }),
-    [auraResolved, map],
+    [variants, map],
   );
 
   const stats = useMemo(() => {

@@ -10,6 +10,80 @@ import {
   standardProducts,
 } from "./products";
 
+// One orderable/labelable row per mg option: each sourced Aura peptide expands
+// to the full strength family of its Standard source; unsourced peptides stay a
+// single row. `sku` is unique per row (Standard variant SKU, or the Aura SKU for
+// unsourced items) so batch numbers and label status can be tracked per mg.
+export type AuraVariant = {
+  auraSku: string;
+  product: string; // Aura peptide display name
+  compound: string | null; // underlying Standard compound
+  category: string;
+  sku: string;
+  strength: number | null;
+  strengthUnit: string;
+  vialSize: number;
+  vialUnit: string;
+  vialsPerPack: number;
+  subtitle?: string;
+  noMoq: number | null;
+  moq50: number | null;
+  sourced: boolean;
+};
+
+export function expandAuraVariants(aura: Product[]): AuraVariant[] {
+  const seen = new Set<string>();
+  const out: AuraVariant[] = [];
+  for (const a of aura) {
+    const category = a.category ?? "Supplies";
+    const src = a.sourceSku ? standardBySku.get(a.sourceSku) : undefined;
+    if (!src) {
+      // Unsourced peptide — keep as a single row on its own Aura SKU.
+      out.push({
+        auraSku: a.sku,
+        product: a.product,
+        compound: null,
+        category,
+        sku: a.sku,
+        strength: a.strength,
+        strengthUnit: a.strengthUnit,
+        vialSize: a.vialSize,
+        vialUnit: a.vialUnit,
+        vialsPerPack: a.vialsPerPack,
+        subtitle: a.subtitle,
+        noMoq: a.noMoq,
+        moq50: a.moq50,
+        sourced: false,
+      });
+      continue;
+    }
+    if (seen.has(src.product)) continue;
+    seen.add(src.product);
+    const variants = standardProducts
+      .filter((p) => p.product === src.product)
+      .sort((x, y) => (x.strength ?? 0) - (y.strength ?? 0));
+    for (const v of variants) {
+      out.push({
+        auraSku: a.sku,
+        product: a.product,
+        compound: src.product,
+        category,
+        sku: v.sku,
+        strength: v.strength,
+        strengthUnit: v.strengthUnit,
+        vialSize: v.vialSize,
+        vialUnit: v.vialUnit,
+        vialsPerPack: v.vialsPerPack,
+        subtitle: a.subtitle,
+        noMoq: v.noMoq,
+        moq50: v.moq50,
+        sourced: true,
+      });
+    }
+  }
+  return out;
+}
+
 // User edits from the bulk editor, persisted client-side. Keyed by Aura SKU.
 // Empty/absent entry ⇒ fall back to the default source mapping.
 export type AuraOverrideMap = Record<string, AuraResolveOverride>;
