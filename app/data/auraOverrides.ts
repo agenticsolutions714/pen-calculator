@@ -39,7 +39,6 @@ export function expandAuraVariants(aura: Product[]): AuraVariant[] {
     const category = a.category ?? "Supplies";
     const src = a.sourceSku ? standardBySku.get(a.sourceSku) : undefined;
     if (!src) {
-      // Unsourced peptide — keep as a single row on its own Aura SKU.
       out.push({
         auraSku: a.sku,
         product: a.product,
@@ -58,11 +57,18 @@ export function expandAuraVariants(aura: Product[]): AuraVariant[] {
       });
       continue;
     }
-    if (seen.has(src.product)) continue;
-    seen.add(src.product);
-    const variants = standardProducts
-      .filter((p) => p.product === src.product)
-      .sort((x, y) => (x.strength ?? 0) - (y.strength ?? 0));
+    // Deduplicate by Aura SKU, not Standard compound name — multiple Aura
+    // products (e.g. GLOW and KLOW) can source from the same compound family.
+    if (seen.has(a.sku)) continue;
+    seen.add(a.sku);
+    // Only expand to the specific sourced SKU rather than the full compound
+    // family when another Aura product already claimed that family.
+    const compoundClaimed = out.some((r) => r.compound === src.product);
+    const variants = compoundClaimed
+      ? [src]
+      : standardProducts
+          .filter((p) => p.product === src.product)
+          .sort((x, y) => (x.strength ?? 0) - (y.strength ?? 0));
     for (const v of variants) {
       out.push({
         auraSku: a.sku,

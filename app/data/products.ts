@@ -206,7 +206,7 @@ export const standardProducts: Product[] = [
   { brand: "Standard", sku: "SERM5", product: "Sermorelin Acetate", strength: 5, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: 126, moq50: 91 },
   { brand: "Standard", sku: "SERM10", product: "Sermorelin Acetate", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: 221, moq50: 161 },
   { brand: "Standard", sku: "GLOW70", product: "BPC-157 + GHK-Cu + TB-5", strength: 70, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: 230, moq50: 204 },
-  { brand: "Standard", sku: "KLOW80", product: "BPC-157 + GHK-Cu + TB-5", strength: 80, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: 253, moq50: 225 },
+  { brand: "Standard", sku: "KLOW80", product: "KPV + BPC-157 + GHK-Cu + TB-5", strength: 80, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: 253, moq50: 225 },
   { brand: "Standard", sku: "CJC2", product: "CJC-1295 (without DAC)", strength: 2, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: 70, moq50: 51 },
 
 ];
