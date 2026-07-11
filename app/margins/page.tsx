@@ -34,6 +34,7 @@ export default function MarginsPage() {
   const [sellingUnit, setSellingUnit] = useState<"vial" | "pack">("vial");
   const [labelCost, setLabelCost] = useState(0.50);
   const [laborCost, setLaborCost] = useState(1.00);
+  const [targetROAS, setTargetROAS] = useState(3.0);
   const [showOnlyPriced, setShowOnlyPriced] = useState(false);
 
   const variants = useMemo(() => expandAuraVariants(auraResolved), [auraResolved]);
@@ -105,6 +106,15 @@ export default function MarginsPage() {
     ? Math.ceil((monthlyFee + adSpend) / avgProfitPerOrder)
     : null;
 
+  // ROAS: Return on Ad Spend = revenue from ads / ad spend
+  const actualROAS = adSpend > 0 ? monthlyRevenue / adSpend : null;
+  // Max ad spend to hit target ROAS: revenue / targetROAS
+  const maxAdForTargetROAS = targetROAS > 0 ? monthlyRevenue / targetROAS : null;
+  // At target ROAS, what's your net profit?
+  const netAtTargetROAS = maxAdForTargetROAS != null
+    ? monthlyGross - monthlyFee - maxAdForTargetROAS
+    : null;
+
   const displayRows = showOnlyPriced ? pricedRows : rows;
 
   const exportPDF = useCallback(() => {
@@ -170,6 +180,12 @@ export default function MarginsPage() {
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-1.5 text-sm tabular-nums outline-none focus:border-neutral-900" />
           </div>
           <div>
+            <label className="block text-xs font-medium text-neutral-600">Target ROAS</label>
+            <input type="number" min={0.1} step={0.1} value={targetROAS}
+              onChange={(e) => setTargetROAS(Number(e.target.value) || 1)}
+              className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-1.5 text-sm tabular-nums outline-none focus:border-neutral-900" />
+          </div>
+          <div>
             <label className="block text-xs font-medium text-neutral-600">Sell by</label>
             <select value={sellingUnit} onChange={(e) => setSellingUnit(e.target.value as "vial" | "pack")}
               className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-neutral-900">
@@ -187,9 +203,10 @@ export default function MarginsPage() {
         </div>
       </section>
 
-      <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         <StatCard label="Avg Margin" value={avgMargin > 0 ? pct(avgMargin) : "—"} hint="after all costs" color={avgMargin > 0.3 ? "green" : avgMargin > 0 ? undefined : "red"} />
         <StatCard label="Profit/Order" value={avgProfitPerOrder > 0 ? currency(avgProfitPerOrder) : "—"} hint="after fees + COGS" color={avgProfitPerOrder > 0 ? "green" : "red"} />
+        <StatCard label="ROAS" value={actualROAS != null ? `${actualROAS.toFixed(1)}x` : "—"} hint={adSpend > 0 ? `target: ${targetROAS}x` : "set ad spend"} color={actualROAS != null && actualROAS >= targetROAS ? "green" : actualROAS != null ? "red" : undefined} />
         <StatCard label="Max Ad Budget" value={maxAdBudget > 0 ? currency(maxAdBudget) : "—"} hint="to break even" color="blue" />
         <StatCard label="Max CPA" value={maxCPA > 0 ? currency(maxCPA) : "—"} hint="per order" color="blue" />
         <StatCard label="Monthly Net" value={monthlyNet !== 0 ? currency(monthlyNet) : "—"} hint={`on ${ordersPerMonth} orders`} color={monthlyNet > 0 ? "green" : "red"} />
@@ -198,25 +215,34 @@ export default function MarginsPage() {
 
       {maxAdBudget > 0 && (
         <section className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
-          <h2 className="text-sm font-semibold text-blue-900">Ad Budget Analysis</h2>
-          <div className="mt-2 grid gap-4 text-sm sm:grid-cols-3">
+          <h2 className="text-sm font-semibold text-blue-900">Ad Budget & ROAS Analysis</h2>
+          <div className="mt-2 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <div className="text-xs font-medium uppercase text-blue-800">Max monthly ad spend</div>
               <div className="mt-1 text-lg font-bold text-blue-900">{currency(maxAdBudget)}</div>
-              <div className="text-xs text-blue-700">before you lose money (after processing + COGS + monthly fee)</div>
+              <div className="text-xs text-blue-700">breakeven (0 profit)</div>
             </div>
             <div>
-              <div className="text-xs font-medium uppercase text-blue-800">Max cost per acquisition</div>
-              <div className="mt-1 text-lg font-bold text-blue-900">{maxCPA > 0 ? currency(maxCPA) : "—"}</div>
-              <div className="text-xs text-blue-700">most you can pay per customer</div>
+              <div className="text-xs font-medium uppercase text-blue-800">Ad spend at {targetROAS}x ROAS</div>
+              <div className="mt-1 text-lg font-bold text-blue-900">{maxAdForTargetROAS != null ? currency(maxAdForTargetROAS) : "—"}</div>
+              <div className="text-xs text-blue-700">
+                {netAtTargetROAS != null ? `net profit: ${currency(netAtTargetROAS)}` : "—"}
+              </div>
             </div>
             <div>
-              <div className="text-xs font-medium uppercase text-blue-800">Current CPA</div>
-              <div className={`mt-1 text-lg font-bold ${cpa > maxCPA ? "text-red-700" : "text-emerald-700"}`}>
-                {adSpend > 0 ? currency(cpa) : "—"}
+              <div className="text-xs font-medium uppercase text-blue-800">Current ROAS</div>
+              <div className={`mt-1 text-lg font-bold ${actualROAS != null && actualROAS >= targetROAS ? "text-emerald-700" : actualROAS != null ? "text-red-700" : "text-blue-900"}`}>
+                {actualROAS != null ? `${actualROAS.toFixed(2)}x` : "—"}
               </div>
               <div className="text-xs text-blue-700">
-                {adSpend > 0 && cpa <= maxCPA ? "Within budget" : adSpend > 0 ? "Over budget!" : "Set ad spend above"}
+                {actualROAS != null && actualROAS >= targetROAS ? `Above ${targetROAS}x target` : actualROAS != null ? `Below ${targetROAS}x target` : "Set ad spend above"}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-medium uppercase text-blue-800">Max CPA</div>
+              <div className="mt-1 text-lg font-bold text-blue-900">{maxCPA > 0 ? currency(maxCPA) : "—"}</div>
+              <div className="text-xs text-blue-700">
+                {adSpend > 0 ? `current: ${currency(cpa)}${cpa > maxCPA ? " (over!)" : ""}` : "cost per acquisition limit"}
               </div>
             </div>
           </div>
