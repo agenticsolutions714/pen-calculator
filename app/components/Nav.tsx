@@ -10,6 +10,7 @@ const links = [
   { href: "/buyers", label: "Buyers" },
   { href: "/price-sheet", label: "Price Sheet" },
   { href: "/catalog", label: "Catalog" },
+  { href: "/margins", label: "Margins" },
   { href: "/media", label: "Media" },
   { href: "/restock", label: "Restock" },
   { href: "/", label: "Calculator" },

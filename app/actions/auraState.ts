@@ -11,7 +11,8 @@ export type AuraStore =
   | "additions"
   | "batches"
   | "labels"
-  | "order";
+  | "order"
+  | "retail";
 
 export type AuraStateSnapshot = Record<AuraStore, Record<string, unknown>>;
 
@@ -21,6 +22,7 @@ const EMPTY: AuraStateSnapshot = {
   batches: {},
   labels: {},
   order: {},
+  retail: {},
 };
 
 // Load the whole shared state as { store: { item: value } } maps.
@@ -32,6 +34,7 @@ export async function loadAuraState(): Promise<AuraStateSnapshot> {
     batches: {},
     labels: {},
     order: {},
+    retail: {},
   };
   try {
     const rows = await db.select().from(auraState);
