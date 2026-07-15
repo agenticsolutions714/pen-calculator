@@ -55,6 +55,11 @@ const CATEGORY_STYLE: Record<
     dot: "bg-slate-400",
     chip: "bg-slate-50 text-slate-600 ring-slate-200",
   },
+  "Growth & Hormone": {
+    header: "text-violet-700",
+    dot: "bg-violet-400",
+    chip: "bg-violet-50 text-violet-700 ring-violet-200",
+  },
 };
 
 const isPriced = (p: AuraVariant) => p.noMoq != null && p.moq50 != null;

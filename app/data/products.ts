@@ -228,6 +228,8 @@ export const auraProducts: Product[] = [
   { brand: "Aura", sku: "A-TB10", product: "TB-500", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "Thymosin Beta-4" },
   { brand: "Aura", sku: "A-KLOW80", product: "KLOW", strength: 80, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "KPV + GHK-Cu + BPC-157 + TB-500" },
   { brand: "Aura", sku: "A-KPV10", product: "KPV", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "Lysine-Proline-Valine Tripeptide" },
+  { brand: "Aura", sku: "A-ARA10", product: "ARA-290", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "Cibinetide · Innate Repair Receptor agonist" },
+  { brand: "Aura", sku: "A-AHK50", product: "AHK-Cu", strength: 50, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Healing & Recovery", subtitle: "Alanine-Histidine-Lysine Copper Peptide" },
 
   // Weight Loss
   { brand: "Aura", sku: "A-GLP1S", product: "GLP-1 S", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Semaglutide · single agonist (GLP-1)" },
@@ -235,23 +237,32 @@ export const auraProducts: Product[] = [
   { brand: "Aura", sku: "A-GLP3R", product: "GLP-3 R", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Retatrutide · triple agonist (GIP/GLP-1/glucagon)" },
   { brand: "Aura", sku: "A-MOTS10", product: "MOTS-c", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Mitochondrial ORF of the 12S rRNA-c" },
   { brand: "Aura", sku: "A-AOD10", product: "AOD-9604", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Fragment 176-191" },
+  { brand: "Aura", sku: "A-FRAG5", product: "HGH Fragment 176-191", strength: 5, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Weight Loss", subtitle: "Fat metabolism fragment of Growth Hormone" },
 
   // Anti-Aging
   { brand: "Aura", sku: "A-EPI10", product: "Epithalon", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Anti-Aging", subtitle: "Pineal Tetrapeptide" },
   { brand: "Aura", sku: "A-NAD1000", product: "NAD+", strength: 1000, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Anti-Aging", subtitle: "Nicotinamide Adenine Dinucleotide" },
-  // No Standard-sheet equivalent, so no strength to inherit — left null (TBD).
   { brand: "Aura", sku: "A-GLUT1000", product: "Glutathione", strength: null, strengthUnit: "", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Anti-Aging", subtitle: "Glutamine / Glycine / Cysteine" },
+  { brand: "Aura", sku: "A-FOX2", product: "FOXO4-DRI", strength: 2, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Anti-Aging", subtitle: "Senolytic peptide · targets senescent cells" },
+  { brand: "Aura", sku: "A-B12", product: "B-12", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Anti-Aging", subtitle: "Methylcobalamin" },
 
   // Cognitive
   { brand: "Aura", sku: "A-SEMAX10", product: "Semax", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Cognitive", subtitle: "Heptapeptide analog of ACTH(4-7)" },
   { brand: "Aura", sku: "A-SELANK10", product: "Selank", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Cognitive", subtitle: "Nootropic anxiolytic peptide" },
   { brand: "Aura", sku: "A-DIHEXA", product: "Dihexa", strength: null, strengthUnit: "", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Cognitive", subtitle: "N-hexanoic-Tyr-Ile-(6) aminohexanoic amide" },
+  { brand: "Aura", sku: "A-DSIP5", product: "DSIP", strength: 5, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Cognitive", subtitle: "Delta Sleep-Inducing Peptide" },
 
   // Sexual Health
   { brand: "Aura", sku: "A-KISS10", product: "Kisspeptin-10", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Sexual Health", subtitle: "10-amino-acid peptide" },
   { brand: "Aura", sku: "A-MT2", product: "Melanotan II", strength: 10, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Sexual Health", subtitle: "Heptapeptide analogue of α-MSH" },
+  { brand: "Aura", sku: "A-OT5", product: "Oxytocin", strength: 5, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Sexual Health", subtitle: "Oxytocin Acetate" },
+  { brand: "Aura", sku: "A-HCG5000", product: "HCG", strength: 5000, strengthUnit: "iu", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Sexual Health", subtitle: "Human Chorionic Gonadotropin" },
 
-  // Supplies — ordered from Standard and relabeled under Aura.
+  // Growth & Hormone
+  { brand: "Aura", sku: "A-IPA5", product: "Ipamorelin", strength: 5, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Growth & Hormone", subtitle: "GH Secretagogue · selective GHSR agonist" },
+  { brand: "Aura", sku: "A-SERM5", product: "Sermorelin", strength: 5, strengthUnit: "mg", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Growth & Hormone", subtitle: "GHRH analog (1-29)" },
+
+  // Supplies
   { brand: "Aura", sku: "A-WAC3", product: "BAC Water", strength: null, strengthUnit: "", vialSize: 3, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Supplies", subtitle: "Bacteriostatic Water" },
   { brand: "Aura", sku: "A-WAC10", product: "BAC Water", strength: null, strengthUnit: "", vialSize: 10, vialUnit: "mL", vialsPerPack: 10, noMoq: null, moq50: null, category: "Supplies", subtitle: "Bacteriostatic Water" },
 ];
@@ -262,6 +273,7 @@ export const AURA_CATEGORIES = [
   "Anti-Aging",
   "Cognitive",
   "Sexual Health",
+  "Growth & Hormone",
   "Supplies",
 ] as const;
 
@@ -277,19 +289,29 @@ export const AURA_SOURCE: Record<string, string | null> = {
   "A-TB10": "TB10",
   "A-KLOW80": "KLOW80",
   "A-KPV10": "KPV10",
+  "A-ARA10": "ARA10",
+  "A-AHK50": "AHK50",
   "A-GLP1S": "SM10",
   "A-GLP2TZ": "TR10",
   "A-GLP3R": "RT10",
   "A-MOTS10": "MS10",
   "A-AOD10": "AOD10",
+  "A-FRAG5": "FRAG5",
   "A-EPI10": "EPI10",
   "A-NAD1000": "NJ1000",
   "A-GLUT1000": null,
+  "A-FOX2": "FOX2",
+  "A-B12": "B12",
   "A-SEMAX10": "SX10",
   "A-SELANK10": "SK10",
   "A-DIHEXA": null,
+  "A-DSIP5": "DS5",
   "A-KISS10": "KS10",
   "A-MT2": "MT2",
+  "A-OT5": "OT5",
+  "A-HCG5000": "HCG5000",
+  "A-IPA5": "IPA5",
+  "A-SERM5": "SERM5",
   "A-WAC3": "WAC3",
   "A-WAC10": "WAC10",
 };
